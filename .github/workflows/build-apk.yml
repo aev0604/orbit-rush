@@ -38,7 +38,7 @@ jobs:
           bubblewrap build --skipSigning
 
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: orbit-rush-apk
           path: twa-project/app-release-unsigned.apk
