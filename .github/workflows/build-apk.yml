@@ -1,0 +1,44 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Initialize TWA project
+        run: |
+          bubblewrap init --manifest https://aev0604.github.io/orbit-rush/manifest.json \
+            --directory twa-project \
+            --packageId com.aev0604.orbitrush \
+            --name "Orbit Rush" \
+            --shortName "Orbit Rush" \
+            --themeColor "#00d4aa" \
+            --backgroundColor "#06060f" \
+            --iconUrl https://aev0604.github.io/orbit-rush/icon-512.png \
+            --maskableIconUrl https://aev0604.github.io/orbit-rush/icon-512.png
+
+      - name: Build APK
+        run: |
+          cd twa-project
+          bubblewrap build --skipSigning
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: orbit-rush-apk
+          path: twa-project/app-release-unsigned.apk
