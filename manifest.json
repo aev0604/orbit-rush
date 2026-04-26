@@ -1,0 +1,24 @@
+{
+  "name": "Orbit Rush",
+  "short_name": "Orbit Rush",
+  "description": "Collect space debris, dodge asteroids, catch power-ups!",
+  "start_url": "/orbit-rush/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#06060f",
+  "theme_color": "#00d4aa",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["games", "entertainment"],
+  "lang": "en"
+}
