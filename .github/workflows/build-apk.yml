@@ -12,6 +12,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -20,24 +26,45 @@ jobs:
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Initialize TWA project
+      - name: Create twa-manifest.json
         run: |
-          bubblewrap init \
-            --manifest https://aev0604.github.io/orbit-rush/manifest.json \
-            --directory twa-project \
-            --packageId com.aev0604.orbitrush \
-            --name "Orbit Rush" \
-            --shortName "Orbit Rush" \
-            --themeColor "#00d4aa" \
-            --backgroundColor "#06060f"
+          cat > twa-manifest.json << 'EOF'
+          {
+            "packageId": "com.aev0604.orbitrush",
+            "host": "aev0604.github.io",
+            "name": "Orbit Rush",
+            "launcherName": "Orbit Rush",
+            "display": "fullscreen",
+            "orientation": "portrait",
+            "themeColor": "#00d4aa",
+            "navigationColor": "#06060f",
+            "backgroundColor": "#06060f",
+            "startUrl": "/orbit-rush/",
+            "iconUrl": "https://aev0604.github.io/orbit-rush/icon-512.png",
+            "maskableIconUrl": "https://aev0604.github.io/orbit-rush/icon-512.png",
+            "appVersionCode": 1,
+            "appVersionName": "1.0.0",
+            "shortcuts": [],
+            "generatorApp": "bubblewrap-cli",
+            "webManifestUrl": "https://aev0604.github.io/orbit-rush/manifest.json",
+            "fallbackType": "customtabs",
+            "features": {},
+            "alphaDependencies": false,
+            "enableNotifications": false,
+            "signingKey": {
+              "path": "./android.keystore",
+              "alias": "android"
+            },
+            "minSdkVersion": 19,
+            "targetSdkVersion": 34
+          }
+          EOF
 
       - name: Build APK
-        run: |
-          cd twa-project
-          bubblewrap build --skipSigning
+        run: bubblewrap build --manifest twa-manifest.json --skipSigning
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: orbit-rush-apk
-          path: twa-project/app-release-unsigned.apk
+          path: app-release-unsigned.apk
