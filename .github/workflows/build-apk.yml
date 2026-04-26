@@ -10,27 +10,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
       - name: Initialize TWA project
         run: |
-          bubblewrap init --manifest https://aev0604.github.io/orbit-rush/manifest.json \
+          bubblewrap init \
+            --manifest https://aev0604.github.io/orbit-rush/manifest.json \
             --directory twa-project \
             --packageId com.aev0604.orbitrush \
             --name "Orbit Rush" \
             --shortName "Orbit Rush" \
             --themeColor "#00d4aa" \
-            --backgroundColor "#06060f" \
-            --iconUrl https://aev0604.github.io/orbit-rush/icon-512.png \
-            --maskableIconUrl https://aev0604.github.io/orbit-rush/icon-512.png
+            --backgroundColor "#06060f"
 
       - name: Build APK
         run: |
