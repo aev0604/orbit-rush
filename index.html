@@ -93,11 +93,16 @@
 
     window.загрузитьГлобальныйТоп = async function() {
       try {
-        const q = query(ref(db, 'leaderboard'), orderByChild('score'), limitToLast(5));
+        const q = query(ref(db, 'leaderboard'), orderByChild('score'), limitToLast(20));
         const snap = await get(q);
         const результаты = [];
-        snap.forEach(child => результаты.push({ score: child.val().score, name: child.val().name || "Player" }));
-        return результаты.sort((a,b) => b.score - a.score);
+        snap.forEach(child => {
+          const val = child.val();
+          if (val.name && val.name !== "Player") {
+            результаты.push({ score: val.score, name: val.name });
+          }
+        });
+        return результаты.sort((a,b) => b.score - a.score).slice(0, 5);
       } catch(e) { console.log('Firebase load error:', e); return []; }
     };
   </script>
@@ -653,9 +658,10 @@ function игровойЦикл() {
     let отмеченМой = false
     топ.forEach((запись, i) => {
       const очки = typeof запись === "object" ? запись.score : запись
-      const имя = typeof запись === "object" ? запись.name : `Player ${i+1}`
+      const имяЗаписи = typeof запись === "object" ? (запись.name || "Anonymous") : "Anonymous"
+      const моёИмя = имяИгрока()
       const y = 196 + i * 30
-      const этотИгрок = !отмеченМой && очки === счёт
+      const этотИгрок = !отмеченМой && очки === счёт && имяЗаписи === моёИмя
       if (этотИгрок) отмеченМой = true
       if (этотИгрок) {
         ctx.fillStyle="rgba(0,212,170,0.15)"
@@ -667,7 +673,7 @@ function игровойЦикл() {
       ctx.textAlign="right"; ctx.fillText(очки, 320, y)
       ctx.fillStyle = этотИгрок ? "#00d4aa" : "#555"
       ctx.textAlign="left"; ctx.font="12px Arial"
-      ctx.fillText(этотИгрок ? `← ${имяИгрока() || имя}` : имя, 100, y)
+      ctx.fillText(этотИгрок ? `← ${имяЗаписи}` : имяЗаписи, 100, y)
     })
 
     if (!топ.length) {
