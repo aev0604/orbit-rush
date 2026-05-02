@@ -122,22 +122,22 @@
       const nameInput = document.getElementById("nameInput")
       const nameBtn = document.getElementById("nameBtn")
       const savedName = localStorage.getItem("orbitRushName")
-      // Если имя уже сохранено — сразу устанавливаем и не показываем overlay
-      if (savedName && savedName !== "Player" && savedName !== "Anonymous") {
-        window._playerName = savedName
-        overlay.style.display = "none"
-      } else {
-        if (savedName) nameInput.value = savedName
+      if (savedName && savedName.length > 0) {
+        nameInput.value = savedName
       }
       function startGame() {
         const name = nameInput.value.trim()
-        if (!name) return // не пускаем без имени
+        if (!name) {
+          nameInput.style.borderColor = "#ff4444"
+          return
+        }
         localStorage.setItem("orbitRushName", name)
         window._playerName = name
         overlay.style.display = "none"
       }
       nameBtn.addEventListener("click", startGame)
       nameInput.addEventListener("keydown", e => { if (e.key === "Enter") startGame() })
+      nameInput.addEventListener("input", () => { nameInput.style.borderColor = "#00d4aa55" })
     })()
   </script>
 
