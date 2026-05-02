@@ -21,19 +21,25 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Accept licenses & configure Android SDK
+      - name: Configure Bubblewrap
         run: |
-          mkdir -p $HOME/.android
-          echo "count=0" > $HOME/.android/repositories.cfg
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          mkdir -p $HOME/.bubblewrap
+          echo '{
+            "jdkPath": "'"$JAVA_HOME"'",
+            "androidSdkPath": "'"$ANDROID_HOME"'"
+          }' > $HOME/.bubblewrap/config.json
+          cat $HOME/.bubblewrap/config.json
 
       - name: Init TWA
         run: |
           mkdir -p twa && cd twa
-          echo "No" | bubblewrap init \
+          bubblewrap init \
             --manifest "https://aev0604.github.io/orbit-rush/manifest.json" \
             --directory . \
             2>&1 || true
@@ -42,7 +48,7 @@ jobs:
       - name: Build APK
         run: |
           cd twa
-          echo "No" | bubblewrap build --skipSigning 2>&1
+          bubblewrap build --skipSigning 2>&1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
