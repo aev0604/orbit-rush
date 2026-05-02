@@ -34,11 +34,13 @@ jobs:
             "jdkPath": "'"$JAVA_HOME"'",
             "androidSdkPath": "'"$ANDROID_HOME"'"
           }' > $HOME/.bubblewrap/config.json
-          cat $HOME/.bubblewrap/config.json
 
       - name: Init TWA
+        env:
+          CI: "false"
         run: |
           mkdir -p twa
+          printf 'aev0604.github.io\n/orbit-rush\nOrbit Rush\ncom.aev0604.orbitrush\n1\n0.0.1\n#06060f\n#06060f\n\n\nno\n' | \
           bubblewrap init \
             --manifest "https://aev0604.github.io/orbit-rush/manifest.json" \
             --directory twa
