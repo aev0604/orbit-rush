@@ -6,7 +6,31 @@
   <meta name="description" content="Orbit Rush — collect space debris, dodge asteroids, catch power-ups!">
   <title>Orbit Rush</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    #nameOverlay {
+      position: fixed; inset: 0; background: rgba(6,6,15,0.96);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; font-family: Arial, sans-serif;
+    }
+    #nameBox {
+      background: #0d0d1f; border: 1px solid #00d4aa44;
+      border-radius: 16px; padding: 32px 28px; text-align: center;
+      box-shadow: 0 0 40px #00d4aa22; max-width: 300px; width: 90%;
+    }
+    #nameBox h2 { color: #00d4aa; font-size: 22px; margin-bottom: 6px; }
+    #nameBox p { color: #888; font-size: 13px; margin-bottom: 20px; }
+    #nameInput {
+      width: 100%; padding: 12px 16px; border-radius: 10px;
+      border: 1px solid #00d4aa55; background: #06060f;
+      color: #fff; font-size: 16px; text-align: center;
+      outline: none; margin-bottom: 16px; box-sizing: border-box;
+    }
+    #nameInput:focus { border-color: #00d4aa; box-shadow: 0 0 12px #00d4aa33; }
+    #nameBtn {
+      width: 100%; padding: 13px; border-radius: 10px;
+      background: #00d4aa; color: #06060f; font-size: 16px;
+      font-weight: bold; border: none; cursor: pointer;
+    }
+    #nameBtn:hover { background: #00ffcc; }
     body {
       background: #06060f;
       display: flex;
@@ -61,9 +85,9 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    window.сохранитьГлобальныйРезультат = async function(очки) {
+    window.сохранитьГлобальныйРезультат = async function(очки, имя) {
       try {
-        await push(ref(db, 'leaderboard'), { score: очки, ts: Date.now() });
+        await push(ref(db, 'leaderboard'), { score: очки, name: имя || "Player", ts: Date.now() });
       } catch(e) { console.log('Firebase save error:', e); }
     };
 
@@ -72,13 +96,38 @@
         const q = query(ref(db, 'leaderboard'), orderByChild('score'), limitToLast(5));
         const snap = await get(q);
         const результаты = [];
-        snap.forEach(child => результаты.push(child.val().score));
-        return результаты.sort((a,b) => b-a);
+        snap.forEach(child => результаты.push({ score: child.val().score, name: child.val().name || "Player" }));
+        return результаты.sort((a,b) => b.score - a.score);
       } catch(e) { console.log('Firebase load error:', e); return []; }
     };
   </script>
 </head>
 <body>
+  <div id="nameOverlay">
+    <div id="nameBox">
+      <h2>🚀 ORBIT RUSH</h2>
+      <p>Enter your name for the leaderboard</p>
+      <input id="nameInput" type="text" maxlength="16" placeholder="Your name..." autocomplete="off" />
+      <button id="nameBtn">▶ PLAY</button>
+    </div>
+  </div>
+  <script>
+    ;(function() {
+      const overlay = document.getElementById("nameOverlay")
+      const nameInput = document.getElementById("nameInput")
+      const nameBtn = document.getElementById("nameBtn")
+      const savedName = localStorage.getItem("orbitRushName")
+      if (savedName) nameInput.value = savedName
+      function startGame() {
+        const name = nameInput.value.trim() || "Player"
+        localStorage.setItem("orbitRushName", name)
+        window._playerName = name
+        overlay.style.display = "none"
+      }
+      nameBtn.addEventListener("click", startGame)
+      nameInput.addEventListener("keydown", e => { if (e.key === "Enter") startGame() })
+    })()
+  </script>
 
 <canvas id="игра" width="400" height="500"></canvas>
 <div class="controls">
@@ -170,6 +219,7 @@ function моёМесто(очки) {
 }
 
 let рейтингТекущий = []
+let имяИгрока = () => window._playerName || localStorage.getItem("orbitRushName") || "Player"
 
 let счёт = 0, рекорд = 0, жизни = 3, скоростьМусора = 2
 let таймерУскорения = 0, кадр = 0, состояние = "онбординг"
@@ -181,7 +231,9 @@ let активноеЗамедление = false, таймерЗамедлени
 let предыдущийУровень = 1
 
 const корабль = { x: 200, y: 390, скорость: 5, движениеЛево: false, движениеПраво: false }
-const мусорСписок = [], астероиды = [], эффекты = [], частицы = [], конфетти = [], бонусы = []
+const мусорСписок = [], астероиды = [], эффекты = [], частицы = [], конфетти = [], бонусы = [], пули = []
+let таймерВыстрела = 0
+const ПЕРЕЗАРЯДКА = 20 // кадров между выстрелами
 const мусорИконки = ["🛸", "☄️", "🪨", "⚡", "💎"]
 
 // Звёзды
@@ -209,12 +261,28 @@ function нажатие(mx, my) {
   if (состояние === "конец")    перезапуск()
 }
 
+function выстрел() {
+  if (состояние !== "игра") return
+  if (таймерВыстрела > 0) return
+  пули.push({ x: корабль.x, y: корабль.y - 22, скорость: 12 })
+  таймерВыстрела = ПЕРЕЗАРЯДКА
+  звук.старт && звук.старт() // лёгкий звук
+}
+
 canvas.addEventListener("touchstart", e => {
   e.preventDefault()
   const r = canvas.getBoundingClientRect()
   касаниеX = (e.touches[0].clientX - r.left) * (400 / r.width)
   касаниеАктивно = true
-  нажатие(касаниеX, (e.touches[0].clientY - r.top) * (500 / r.height))
+  const my = (e.touches[0].clientY - r.top) * (500 / r.height)
+  const mx = касаниеX
+  // Если игра активна и тап не на кнопке паузы — стреляем
+  if (состояние === "игра" &&
+      !(mx > кнопкаПаузы.x && mx < кнопкаПаузы.x + кнопкаПаузы.ш &&
+        my > кнопкаПаузы.y && my < кнопкаПаузы.y + кнопкаПаузы.в)) {
+    выстрел(); return
+  }
+  нажатие(mx, my)
 }, { passive: false })
 canvas.addEventListener("touchmove", e => {
   e.preventDefault()
@@ -232,6 +300,7 @@ document.addEventListener("keydown", e => {
     if (состояние === "игра" || состояние === "пауза") переключитьПаузу()
   }
   if (e.key === " " || e.key === "Enter") {
+    if (состояние === "игра")    { e.preventDefault(); выстрел() }
     if (состояние === "онбординг") следующийШаг()
     if (состояние === "конец")    перезапуск()
     if (состояние === "пауза")   переключитьПаузу()
@@ -254,7 +323,8 @@ function перезапуск() {
   счёт = 0; жизни = 3; скоростьМусора = 2; таймерУскорения = 0; кадр = 0
   корабль.x = 200
   мусорСписок.length = астероиды.length = эффекты.length = 0
-  частицы.length = конфетти.length = бонусы.length = 0
+  частицы.length = конфетти.length = бонусы.length = пули.length = 0
+  таймерВыстрела = 0
   новыйРекордФлаг = false
   активныйЩит = активныйМагнит = активноеЗамедление = false
   предыдущийУровень = 1; состояние = "игра"
@@ -363,7 +433,7 @@ function рисОнбординг() {
     ctx.fillStyle = ш.цвет; ctx.font = "bold 14px Arial"
     ctx.fillText(онбординг.шаг < 2 ? "Next →" : т.старт, 200, 386); noGlow()
   }
-  if (онбординг.шаг === 0) { ctx.fillStyle = "#2a2a3a"; ctx.font = "12px Arial"; ctx.fillText("← → keys or touch to move", 200, 432) }
+  if (онбординг.шаг === 0) { ctx.fillStyle = "#2a2a3a"; ctx.font = "12px Arial"; ctx.fillText("← → move  •  Space / tap = shoot 🔫", 200, 432) }
 }
 function рисБонусHUD() {
   let ox = 14
@@ -429,6 +499,35 @@ function игровойЦикл() {
     if (активноеЗамедление && --таймерЗамедления <= 0) активноеЗамедление = false
     const см = активноеЗамедление ? 0.35 : 1
 
+    if (таймерВыстрела > 0) таймерВыстрела--
+
+    // Пули
+    for (let i = пули.length-1; i >= 0; i--) {
+      const п = пули[i]; п.y -= п.скорость
+      // Проверяем попадание в астероид
+      let попал = false
+      for (let j = астероиды.length-1; j >= 0; j--) {
+        const а = астероиды[j]
+        const дx = п.x - а.x, дy = п.y - а.y
+        if (Math.sqrt(дx*дx + дy*дy) < а.радиус + 5) {
+          взрыв(а.x, а.y, "#ff6622", 18)
+          добЭффект(а.x, а.y-15, "+25 💥", "#ff6622")
+          счёт += 25; звук.сбор(); вибрация(30)
+          астероиды.splice(j, 1); пули.splice(i, 1)
+          попал = true; break
+        }
+      }
+      if (попал) continue
+      if (п.y < -10) { пули.splice(i, 1); continue }
+      // Рисуем пулю
+      glow("#ffcc00", 12)
+      ctx.fillStyle = "#ffee44"
+      ctx.beginPath(); ctx.ellipse(п.x, п.y, 3, 8, 0, 0, Math.PI*2); ctx.fill()
+      ctx.fillStyle = "#ffffff88"
+      ctx.beginPath(); ctx.ellipse(п.x, п.y-4, 1.5, 3, 0, 0, Math.PI*2); ctx.fill()
+      noGlow()
+    }
+
     // Мусор
     for (let i = мусорСписок.length-1; i >= 0; i--) {
       const м = мусорСписок[i]; м.y += м.скорость * см
@@ -452,9 +551,14 @@ function игровойЦикл() {
           if (счёт > рекорд) { рекорд=счёт; новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
           else звук.смерть()
           рейтингТекущий = добавитьВРейтинг(счёт);
-          if (window.сохранитьГлобальныйРезультат) window.сохранитьГлобальныйРезультат(счёт);
-          if (window.загрузитьГлобальныйТоп) window.загрузитьГлобальныйТоп().then(топ => { if(топ.length) рейтингТекущий = топ })
-          состояние = "конец"
+          состояние = "конец";
+          if (window.сохранитьГлобальныйРезультат && window.загрузитьГлобальныйТоп) {
+            window.сохранитьГлобальныйРезультат(счёт, имяИгрока()).then(() => {
+              return window.загрузитьГлобальныйТоп();
+            }).then(топ => {
+              if (топ && топ.length) рейтингТекущий = топ;
+            }).catch(e => console.log('Firebase error:', e));
+          }
         }
         continue
       }
@@ -546,20 +650,24 @@ function игровойЦикл() {
     ctx.beginPath(); ctx.roundRect(60,168,280,168,10); ctx.stroke()
 
     const медали = ["🥇","🥈","🥉","4️⃣","5️⃣"]
-    топ.forEach((очки, i) => {
+    let отмеченМой = false
+    топ.forEach((запись, i) => {
+      const очки = typeof запись === "object" ? запись.score : запись
+      const имя = typeof запись === "object" ? запись.name : `Player ${i+1}`
       const y = 196 + i * 30
-      const этотИгрок = очки === счёт && i === топ.indexOf(счёт)
+      const этотИгрок = !отмеченМой && очки === счёт
+      if (этотИгрок) отмеченМой = true
       if (этотИгрок) {
         ctx.fillStyle="rgba(0,212,170,0.15)"
         ctx.beginPath(); ctx.roundRect(65, y-18, 270, 26, 6); ctx.fill()
       }
       ctx.font = этотИгрок ? "bold 15px Arial" : "14px Arial"
       ctx.fillStyle = этотИгрок ? "#00d4aa" : "#888"
-      ctx.textAlign="left";  ctx.fillText(медали[i], 80, y)
+      ctx.textAlign="left"; ctx.fillText(медали[i], 80, y)
       ctx.textAlign="right"; ctx.fillText(очки, 320, y)
       ctx.fillStyle = этотИгрок ? "#00d4aa" : "#555"
-      ctx.textAlign="left";  ctx.font="12px Arial"
-      ctx.fillText(этотИгрок ? "← YOU" : `Player ${i+1}`, 100, y)
+      ctx.textAlign="left"; ctx.font="12px Arial"
+      ctx.fillText(этотИгрок ? `← ${имяИгрока() || имя}` : имя, 100, y)
     })
 
     if (!топ.length) {
