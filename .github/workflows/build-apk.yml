@@ -1,10 +1,8 @@
 name: Build APK
-
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,30 +22,27 @@ jobs:
           node-version: '20'
 
       - name: Install Bubblewrap
-        run: |
-          npm install -g @bubblewrap/cli
-          bubblewrap --version
+        run: npm install -g @bubblewrap/cli
 
-      - name: Accept licenses
+      - name: Accept licenses & configure Android SDK
         run: |
           mkdir -p $HOME/.android
           echo "count=0" > $HOME/.android/repositories.cfg
-          yes | bubblewrap doctor || true
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
 
       - name: Init TWA
         run: |
-          mkdir twa && cd twa
-          bubblewrap init \
+          mkdir -p twa && cd twa
+          echo "No" | bubblewrap init \
             --manifest "https://aev0604.github.io/orbit-rush/manifest.json" \
             --directory . \
-            --skip-pwa-shell-update \
             2>&1 || true
           ls -la
 
-      - name: Build
+      - name: Build APK
         run: |
           cd twa
-          bubblewrap build --skipSigning 2>&1
+          echo "No" | bubblewrap build --skipSigning 2>&1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
