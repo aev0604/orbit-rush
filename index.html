@@ -122,9 +122,16 @@
       const nameInput = document.getElementById("nameInput")
       const nameBtn = document.getElementById("nameBtn")
       const savedName = localStorage.getItem("orbitRushName")
-      if (savedName) nameInput.value = savedName
+      // Если имя уже сохранено — сразу устанавливаем и не показываем overlay
+      if (savedName && savedName !== "Player" && savedName !== "Anonymous") {
+        window._playerName = savedName
+        overlay.style.display = "none"
+      } else {
+        if (savedName) nameInput.value = savedName
+      }
       function startGame() {
-        const name = nameInput.value.trim() || "Player"
+        const name = nameInput.value.trim()
+        if (!name) return // не пускаем без имени
         localStorage.setItem("orbitRushName", name)
         window._playerName = name
         overlay.style.display = "none"
