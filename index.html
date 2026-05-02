@@ -86,8 +86,9 @@
     const db = getDatabase(app);
 
     window.сохранитьГлобальныйРезультат = async function(очки, имя) {
+      const finalName = имя || localStorage.getItem("orbitRushName") || "Anonymous"
       try {
-        await push(ref(db, 'leaderboard'), { score: очки, name: имя || "Player", ts: Date.now() });
+        await push(ref(db, 'leaderboard'), { score: очки, name: finalName, ts: Date.now() });
       } catch(e) { console.log('Firebase save error:', e); }
     };
 
@@ -654,12 +655,17 @@ function игровойЦикл() {
     ctx.fillText(`${т.рекорд}: ${рекорд}`, 200, 128); noGlow()
 
     // Лидерборд
-    const топ = рейтингТекущий.length ? рейтингТекущий : загрузитьРейтинг()
+    const топ = рейтингТекущий
     glow("#ffcc00",10); ctx.fillStyle="#ffcc00"; ctx.font="bold 15px Arial"
     ctx.fillText("🏆 GLOBAL TOP 5", 200, 160); noGlow()
 
     ctx.strokeStyle="#ffffff11"; ctx.lineWidth=1
     ctx.beginPath(); ctx.roundRect(60,168,280,168,10); ctx.stroke()
+
+    if (!топ.length) {
+      ctx.fillStyle="#555"; ctx.font="13px Arial"; ctx.textAlign="center"
+      ctx.fillText("Loading...", 200, 240)
+    }
 
     const медали = ["🥇","🥈","🥉","4️⃣","5️⃣"]
     let отмеченМой = false
