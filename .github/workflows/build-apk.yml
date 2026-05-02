@@ -38,17 +38,16 @@ jobs:
 
       - name: Init TWA
         run: |
-          mkdir -p twa && cd twa
+          mkdir -p twa
           bubblewrap init \
             --manifest "https://aev0604.github.io/orbit-rush/manifest.json" \
-            --directory . \
-            2>&1 || true
-          ls -la
+            --directory twa
+          ls -la twa/
 
       - name: Build APK
         run: |
           cd twa
-          bubblewrap build --skipSigning 2>&1
+          bubblewrap build --skipSigning
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
