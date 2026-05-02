@@ -565,8 +565,10 @@ function игровойЦикл() {
           else звук.смерть()
           рейтингТекущий = добавитьВРейтинг(счёт);
           состояние = "конец";
+          const _имя = имяИгрока()
+          console.log("=== GAME OVER === имя:", _имя, "window._playerName:", window._playerName, "localStorage:", localStorage.getItem("orbitRushName"))
           if (window.сохранитьГлобальныйРезультат && window.загрузитьГлобальныйТоп) {
-            window.сохранитьГлобальныйРезультат(счёт, имяИгрока()).then(() => {
+            window.сохранитьГлобальныйРезультат(счёт, _имя).then(() => {
               return window.загрузитьГлобальныйТоп();
             }).then(топ => {
               if (топ && топ.length) рейтингТекущий = топ;
