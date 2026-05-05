@@ -114,7 +114,7 @@
           // Новый игрок — создаём запись
           await push(ref(db, 'leaderboard'), { score: Math.round(очки), name: finalName, ts: Date.now() })
         }
-      } catch(e) { console.log('Firebase save error:', e) }
+      } catch(e) {}
     };
 
     window.загрузитьГлобальныйТоп = async function() {
@@ -1465,13 +1465,12 @@ function игровойЦикл() {
           смертьМаксУровень = Math.min(уровень, максДостигнутыйУровень); смертьВыбранныйУровень = Math.floor((смертьМаксУровень-1)/5)*5+1;
           состояние = "конец";
           const _имя = имяИгрока()
-          console.log("=== GAME OVER === имя:", _имя, "window._playerName:", window._playerName, "localStorage:", localStorage.getItem("orbitRushName"))
           if (window.сохранитьГлобальныйРезультат && window.загрузитьГлобальныйТоп) {
             window.сохранитьГлобальныйРезультат(счёт, _имя).then(() => {
               return window.загрузитьГлобальныйТоп();
             }).then(топ => {
               if (топ && топ.length) рейтингТекущий = топ;
-            }).catch(e => console.log('Firebase error:', e));
+            }).catch(() => {});
           }
         }
         continue
