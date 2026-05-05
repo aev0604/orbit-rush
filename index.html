@@ -242,11 +242,11 @@
           window.загрузитьЛичныйРекорд(name).then(лучший => {
             if (лучший > 0) {
               const текущий = parseInt(localStorage.getItem("orbitRushRecord") || "0")
-              if (лучший > текущий) {
-                localStorage.setItem("orbitRushRecord", String(лучший))
-                // Обновляем переменную рекорда в игре
-                if (typeof рекорд !== "undefined") window._рекордИзFirebase = лучший
-              }
+              const макс = Math.max(лучший, текущий)
+              localStorage.setItem("orbitRushRecord", String(макс))
+              window._рекордИзFirebase = макс
+              // Обновляем переменную рекорда прямо в игре
+              try { рекорд = макс } catch(e) {}
             }
           })
         }
