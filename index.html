@@ -253,9 +253,8 @@
           window.загрузитьЛичныйРекорд(name).then(лучший => {
             clearTimeout(таймаут)
             if (лучший > 0) {
-              const макс = Math.max(лучший, parseInt(localStorage.getItem("orbitRushRecord") || "0"))
-              localStorage.setItem("orbitRushRecord", String(макс))
-              window._лучшийРезультат = макс
+              const текущий = parseInt(localStorage.getItem("orbitRushRecord") || "0")
+              if (лучший > текущий) localStorage.setItem("orbitRushRecord", String(лучший))
             }
             запустить()
           }).catch(() => { clearTimeout(таймаут); запустить() })
@@ -686,7 +685,7 @@ function следующийШаг() {
     предыдущийУровень = startLvl
     загрузитьАпгрейды()
     перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
-    if (window._лучшийРезультат && window._лучшийРезультат > рекорд) рекорд = window._лучшийРезультат
+    рекорд = Math.max(рекорд, parseInt(localStorage.getItem("orbitRushRecord")||"0"))
     состояние = "игра"
   }
 }
@@ -711,7 +710,7 @@ function перезапуск() {
   новыйРекордФлаг = false
   активныйЩит = активныйМагнит = активноеЗамедление = false
   // Применяем лучший результат из Firebase если он выше
-  if (window._лучшийРезультат && window._лучшийРезультат > рекорд) рекорд = window._лучшийРезультат
+  рекорд = Math.max(рекорд, parseInt(localStorage.getItem("orbitRushRecord")||"0"))
   предыдущийУровень = startLvl; рейтингТекущий = []; состояние = "игра"
 }
 function вибрация(м) { try { navigator.vibrate && navigator.vibrate(м) } catch (e) {} }
@@ -1431,7 +1430,7 @@ function игровойЦикл() {
         жизни--; таймерНеуязвимости=120; взрыв(корабль.x,корабль.y,в.цвет)
         добЭффект(корабль.x,корабль.y-25,"-1 ❤️","#ff4444"); звук.удар(); вибрация([80,30,80]); врагиСписок.splice(i,1)
         if (жизни <= 0) {
-          if (счёт > рекорд) { рекорд=Math.round(счёт); localStorage.setItem("orbitRushRecord", String(рекорд)); новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
+          рекорд = Math.max(рекорд, parseInt(localStorage.getItem("orbitRushRecord")||"0")); if (счёт > рекорд) { рекорд=Math.round(счёт); localStorage.setItem("orbitRushRecord", String(рекорд)); новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
           else звук.смерть()
           рейтингТекущий = []; смертьМаксУровень = Math.min(уровень, максДостигнутыйУровень); смертьВыбранныйУровень = Math.floor((смертьМаксУровень-1)/5)*5+1; состояние = "конец"
           const _имя = имяИгрока()
@@ -1459,7 +1458,7 @@ function игровойЦикл() {
         жизни--; таймерНеуязвимости=120; взрыв(корабль.x,корабль.y,"#ff4400")
         добЭффект(корабль.x,корабль.y-25,"-1 ❤️","#ff4444"); звук.удар(); вибрация([80,30,80]); астероиды.splice(i,1)
         if (жизни <= 0) {
-          if (счёт > рекорд) { рекорд=Math.round(счёт); localStorage.setItem("orbitRushRecord", String(рекорд)); новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
+          рекорд = Math.max(рекорд, parseInt(localStorage.getItem("orbitRushRecord")||"0")); if (счёт > рекорд) { рекорд=Math.round(счёт); localStorage.setItem("orbitRushRecord", String(рекорд)); новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
           else звук.смерть()
           
           смертьМаксУровень = Math.min(уровень, максДостигнутыйУровень); смертьВыбранныйУровень = Math.floor((смертьМаксУровень-1)/5)*5+1;
@@ -1491,7 +1490,7 @@ function игровойЦикл() {
         добЭффект(корабль.x, корабль.y-30, "BLACK HOLE!", "#9900ff")
         звук.смерть(); вибрация([200,50,200])
         жизни = 0
-        if (счёт > рекорд) { рекорд=Math.round(счёт); localStorage.setItem("orbitRushRecord", String(рекорд)); новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
+        рекорд = Math.max(рекорд, parseInt(localStorage.getItem("orbitRushRecord")||"0")); if (счёт > рекорд) { рекорд=Math.round(счёт); localStorage.setItem("orbitRushRecord", String(рекорд)); новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
         рейтингТекущий = []
         состояние = "конец"
         смертьМаксУровень = Math.min(уровень, максДостигнутыйУровень)
@@ -1539,7 +1538,7 @@ function игровойЦикл() {
           if (активныйЩит) { активныйЩит=false; таймерЩита=0; взрыв(корабль.x,корабль.y,"#4488ff",20); добЭффект(корабль.x,корабль.y-25,"🛡️ BLOCK!","#4488ff"); звук.блок() }
           else { жизни--; таймерНеуязвимости=150; взрыв(корабль.x,корабль.y,"#ff4400"); добЭффект(корабль.x,корабль.y-25,"-1 ❤️","#ff4444"); звук.удар(); вибрация([80,30,80]) }
           if (жизни <= 0) {
-            if (счёт > рекорд) { рекорд=Math.round(счёт); localStorage.setItem("orbitRushRecord", String(рекорд)); новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
+            рекорд = Math.max(рекорд, parseInt(localStorage.getItem("orbitRushRecord")||"0")); if (счёт > рекорд) { рекорд=Math.round(счёт); localStorage.setItem("orbitRushRecord", String(рекорд)); новыйРекордФлаг=true; конфеттиЗапуск(); звук.рекорд() }
             else звук.смерть()
             рейтингТекущий = []; смертьМаксУровень = Math.min(уровень, максДостигнутыйУровень); смертьВыбранныйУровень = Math.floor((смертьМаксУровень-1)/5)*5+1; состояние = "конец"
             const _имя = имяИгрока()
