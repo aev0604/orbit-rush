@@ -253,11 +253,8 @@
           window.загрузитьЛичныйРекорд(name).then(лучший => {
             clearTimeout(таймаут)
             if (лучший > 0) {
-              const текущий = parseInt(localStorage.getItem("orbitRushRecord") || "0")
-              const макс = Math.max(лучший, текущий)
-              localStorage.setItem("orbitRushRecord", String(макс))
-              window._рекордИзFirebase = макс
-              try { рекорд = макс } catch(e) {}
+              const макс = Math.max(лучший, parseInt(localStorage.getItem("orbitRushRecord") || "0"))
+              window.рекорд = макс  // обновляем глобально — игра сразу видит новое значение
             }
             запустить()
           }).catch(() => { clearTimeout(таймаут); запустить() })
@@ -458,7 +455,14 @@ const т = {
 let рейтингТекущий = []
 let имяИгрока = () => window._playerName || localStorage.getItem("orbitRushName") || "Player"
 
-let счёт = 0, рекорд = parseInt(localStorage.getItem("orbitRushRecord") || "0"), жизни = 3, скоростьМусора = 2
+let счёт = 0, жизни = 3, скоростьМусора = 2
+// рекорд — глобальная переменная чтобы Firebase мог обновить из любого скрипта
+window.рекорд = parseInt(localStorage.getItem("orbitRushRecord") || "0")
+Object.defineProperty(window, 'рекорд', {
+  get() { return window._рекордЗначение || 0 },
+  set(v) { window._рекордЗначение = v; localStorage.setItem("orbitRushRecord", String(v)) }
+})
+window.рекорд = parseInt(localStorage.getItem("orbitRushRecord") || "0")
 let таймерУскорения = 0, кадр = 0, состояние = "онбординг"
 let таймерНеуязвимости = 0, новыйРекордФлаг = false
 let онбординг = { шаг: 0, таймер: 0 }, паузаМигание = 0
@@ -689,9 +693,6 @@ function следующийШаг() {
     загрузитьАпгрейды()
     перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
     // Синхронизируем рекорд из Firebase
-    const фбРекорд = window._рекордИзFirebase || 0
-    const лсРекорд = parseInt(localStorage.getItem("orbitRushRecord") || "0")
-    рекорд = Math.max(фбРекорд, лсРекорд)
     состояние = "игра"
   }
 }
@@ -716,9 +717,6 @@ function перезапуск() {
   новыйРекордФлаг = false
   активныйЩит = активныйМагнит = активноеЗамедление = false
   // Синхронизируем рекорд из Firebase если он выше localStorage
-  const фбРекорд = window._рекордИзFirebase || 0
-  const лсРекорд = parseInt(localStorage.getItem("orbitRushRecord") || "0")
-  рекорд = Math.max(фбРекорд, лсРекорд)
   предыдущийУровень = startLvl; рейтингТекущий = []; состояние = "игра"
 }
 function вибрация(м) { try { navigator.vibrate && navigator.vibrate(м) } catch (e) {} }
