@@ -1643,10 +1643,10 @@ function игровойЦикл() {
     ctx.fillStyle="#ffffff"; ctx.font="bold 26px Arial"
     ctx.fillText(`${Math.round(счёт)}`, 200, 84)
 
-    // ── Строка 4: Рекорд + галактика (y=106)
+    // ── Строка 4: Галактика и уровень (y=106)
     glow("#00d4aa",6); ctx.fillStyle="#00d4aa"; ctx.font="12px Arial"
     const гал = Math.floor((уровень-1)/5)+1, лвл = ((уровень-1)%5)+1
-    ctx.fillText(`Best: ${getРекорд()}  •  G${гал} Lvl${лвл} ⭐`, 200, 106); noGlow()
+    ctx.fillText(`G${гал} Lvl${лвл} ⭐`, 200, 106); noGlow()
 
     // ── Разделитель
     ctx.strokeStyle="#ffffff0a"; ctx.lineWidth=1
