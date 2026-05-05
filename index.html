@@ -2,16 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="description" content="Orbit Rush — collect space debris, dodge asteroids, catch power-ups! Infinite galaxy runner with upgrades and global leaderboard.">
-  <meta name="theme-color" content="#06060f">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Orbit Rush">
-  <meta property="og:title" content="Orbit Rush">
-  <meta property="og:description" content="Collect space debris, dodge asteroids, unlock skins — how far can you go?">
-  <meta property="og:type" content="game">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="description" content="Orbit Rush — collect space debris, dodge asteroids, catch power-ups!">
   <title>Orbit Rush</title>
   <style>
     #nameOverlay {
@@ -122,7 +114,7 @@
           // Новый игрок — создаём запись
           await push(ref(db, 'leaderboard'), { score: Math.round(очки), name: finalName, ts: Date.now() })
         }
-      } catch(e) {}
+      } catch(e) { console.log('Firebase save error:', e) }
     };
 
     window.загрузитьГлобальныйТоп = async function() {
@@ -136,13 +128,24 @@
             результаты.push({ score: val.score, name: val.name })
           }
         })
-        // Дедупликация на случай старых дублей — оставляем лучший на имя
         const уникальные = {}
         результаты.forEach(r => {
           if (!уникальные[r.name] || r.score > уникальные[r.name].score) уникальные[r.name] = r
         })
         return Object.values(уникальные).sort((a,b) => b.score - a.score).slice(0, 5)
       } catch(e) { return [] }
+    };
+
+    // Загружаем личный рекорд игрока из Firebase при старте
+    window.загрузитьЛичныйРекорд = async function(имя) {
+      if (!имя || имя === "Player") return 0
+      try {
+        const q = query(ref(db, 'leaderboard'), orderByChild('name'), equalTo(имя))
+        const snap = await get(q)
+        let лучший = 0
+        snap.forEach(child => { if (child.val().score > лучший) лучший = child.val().score })
+        return лучший
+      } catch(e) { return 0 }
     };
   </script>
 </head>
@@ -234,6 +237,19 @@
         window._playerName = name
         window._startLevel = chosenLevel
         overlay.style.display = "none"
+        // Загружаем личный рекорд из Firebase — чтобы не показывать ложный "NEW RECORD"
+        if (window.загрузитьЛичныйРекорд) {
+          window.загрузитьЛичныйРекорд(name).then(лучший => {
+            if (лучший > 0) {
+              const текущий = parseInt(localStorage.getItem("orbitRushRecord") || "0")
+              if (лучший > текущий) {
+                localStorage.setItem("orbitRushRecord", String(лучший))
+                // Обновляем переменную рекорда в игре
+                if (typeof рекорд !== "undefined") window._рекордИзFirebase = лучший
+              }
+            }
+          })
+        }
       }
       nameBtn.addEventListener("click", startGame)
       nameInput.addEventListener("keydown", e => { if (e.key === "Enter") startGame() })
@@ -658,6 +674,10 @@ function следующийШаг() {
     предыдущийУровень = startLvl
     загрузитьАпгрейды()
     перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
+    // Синхронизируем рекорд из Firebase
+    const фбРекорд = window._рекордИзFirebase || 0
+    const лсРекорд = parseInt(localStorage.getItem("orbitRushRecord") || "0")
+    рекорд = Math.max(фбРекорд, лсРекорд)
     состояние = "игра"
   }
 }
@@ -672,7 +692,6 @@ function перезапуск() {
   const ов = document.getElementById("shopBtnOverlay"); if (ов) ов.style.display = "none"
   монетыСессии = 0
   загрузитьАпгрейды()
-  // Применяем апгрейды
   перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
   if (window._upgExtralife && жизни < 4) жизни++
   таймерВыстрела = 0
@@ -682,6 +701,10 @@ function перезапуск() {
   состояниеПереходУровня = false
   новыйРекордФлаг = false
   активныйЩит = активныйМагнит = активноеЗамедление = false
+  // Синхронизируем рекорд из Firebase если он выше localStorage
+  const фбРекорд = window._рекордИзFirebase || 0
+  const лсРекорд = parseInt(localStorage.getItem("orbitRushRecord") || "0")
+  рекорд = Math.max(фбРекорд, лсРекорд)
   предыдущийУровень = startLvl; рейтингТекущий = []; состояние = "игра"
 }
 function вибрация(м) { try { navigator.vibrate && navigator.vibrate(м) } catch (e) {} }
@@ -1435,12 +1458,13 @@ function игровойЦикл() {
           смертьМаксУровень = Math.min(уровень, максДостигнутыйУровень); смертьВыбранныйУровень = Math.floor((смертьМаксУровень-1)/5)*5+1;
           состояние = "конец";
           const _имя = имяИгрока()
+          console.log("=== GAME OVER === имя:", _имя, "window._playerName:", window._playerName, "localStorage:", localStorage.getItem("orbitRushName"))
           if (window.сохранитьГлобальныйРезультат && window.загрузитьГлобальныйТоп) {
             window.сохранитьГлобальныйРезультат(счёт, _имя).then(() => {
               return window.загрузитьГлобальныйТоп();
             }).then(топ => {
               if (топ && топ.length) рейтингТекущий = топ;
-            }).catch(() => {});
+            }).catch(e => console.log('Firebase error:', e));
           }
         }
         continue
