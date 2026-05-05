@@ -236,19 +236,33 @@
         localStorage.setItem("orbitRushName", name)
         window._playerName = name
         window._startLevel = chosenLevel
-        overlay.style.display = "none"
-        // Загружаем личный рекорд из Firebase — чтобы не показывать ложный "NEW RECORD"
+
+        // Показываем "Loading..." пока Firebase не ответил
+        nameBtn.textContent = "⏳ Loading..."
+        nameBtn.disabled = true
+
+        const запустить = () => {
+          overlay.style.display = "none"
+          nameBtn.textContent = "▶ PLAY"
+          nameBtn.disabled = false
+        }
+
         if (window.загрузитьЛичныйРекорд) {
+          // Таймаут 3 сек — если Firebase не ответил, запускаем всё равно
+          const таймаут = setTimeout(запустить, 3000)
           window.загрузитьЛичныйРекорд(name).then(лучший => {
+            clearTimeout(таймаут)
             if (лучший > 0) {
               const текущий = parseInt(localStorage.getItem("orbitRushRecord") || "0")
               const макс = Math.max(лучший, текущий)
               localStorage.setItem("orbitRushRecord", String(макс))
               window._рекордИзFirebase = макс
-              // Обновляем переменную рекорда прямо в игре
               try { рекорд = макс } catch(e) {}
             }
-          })
+            запустить()
+          }).catch(() => { clearTimeout(таймаут); запустить() })
+        } else {
+          запустить()
         }
       }
       nameBtn.addEventListener("click", startGame)
