@@ -284,11 +284,11 @@
     { id:"rainbow",  иконка:"🌈", название:"Rainbow",  цена:1000, цвет:"#ff44aa", двигатель:"#ffcc00", описание:"Ultra rare" },
   ]
   const АПГРЕЙДЫ = [
-    { id:"rapidfire",      иконка:"🔫", название:"Rapid Fire",      макс:3, ценыУровней:[150,300,500], описания:["Fire rate +20%","Fire rate +40%","Fire rate +60%"] },
-    { id:"magnet",         иконка:"🧲", название:"Magnet+",         макс:3, ценыУровней:[150,300,450], описания:["Range +30%","Range +60%","Range +100%"] },
-    { id:"extralife",      иконка:"❤️", название:"Extra Life",      макс:1, ценыУровней:[300], описания:["+1 life on start (once per galaxy)"] },
-    { id:"bubbleshield",   иконка:"🫧", название:"Bubble Shield",   макс:1, ценыУровней:[350], описания:["Start with shield (once per galaxy)"] },
-    { id:"shieldrecharge", иконка:"🛡️", название:"Shield Recharge", макс:3, ценыУровней:[200,400,600], описания:["Shield lasts +20%","Shield lasts +40%","Shield lasts +60%"] },
+    { id:"rapidfire",      иконка:"🔫", название:"Rapid Fire",      макс:3, ценыУровней:[150,300,500], описания:["Shoot faster +20%","Shoot faster +40%","Shoot faster +60%"] },
+    { id:"magnet",         иконка:"🧲", название:"Magnet",           макс:3, ценыУровней:[150,300,450], описания:["Collect range +30%","Collect range +60%","Collect range x2"] },
+    { id:"extralife",      иконка:"❤️", название:"Extra Life",      макс:1, ценыУровней:[300], описания:["Start each game with +1 life (resets per galaxy)"] },
+    { id:"bubbleshield",   иконка:"🫧", название:"Bubble Shield",   макс:1, ценыУровней:[350], описания:["Start each game with shield active (resets per galaxy)"] },
+    { id:"shieldrecharge", иконка:"🛡️", название:"Shield Duration",  макс:3, ценыУровней:[200,400,600], описания:["🛡️ pickups last +20% longer","🛡️ pickups last +40% longer","🛡️ pickups last +60% longer"] },
   ]
   function сохранитьМагазин(д) { localStorage.setItem("orbitRushShop", JSON.stringify(д)) }
   function загрузитьМагазин() { try { return JSON.parse(localStorage.getItem("orbitRushShop") || "{}") } catch { return {} } }
