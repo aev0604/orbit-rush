@@ -286,7 +286,7 @@
   const АПГРЕЙДЫ = [
     { id:"rapidfire", иконка:"🔫", название:"Rapid Fire",  макс:3, ценыУровней:[150,300,500], описания:["Fire rate +20%","Fire rate +40%","Fire rate +60%"] },
     { id:"magnet",    иконка:"🧲", название:"Magnet+",     макс:3, ценыУровней:[150,300,450], описания:["Range +30%","Range +60%","Range +100%"] },
-    { id:"extralife", иконка:"❤️", название:"Extra Life",  макс:1, ценыУровней:[300],         описания:["+1 life on start"] },
+    { id:"extralife", иконка:"❤️", название:"Extra Life",  макс:1, ценыУровней:[300], описания:["+1 life on start (once per galaxy)"] },
   ]
   function сохранитьМагазин(д) { localStorage.setItem("orbitRushShop", JSON.stringify(д)) }
   function загрузитьМагазин() { try { return JSON.parse(localStorage.getItem("orbitRushShop") || "{}") } catch { return {} } }
@@ -325,20 +325,25 @@
     })
     // --- Апгрейды ---
     const list = document.getElementById("upgradeList"); list.innerHTML = ""
+    const текГалактика = parseInt(localStorage.getItem("orbitRushMaxGalaxy") || "1")
     АПГРЕЙДЫ.forEach(а => {
-      const lv = д["upg_"+а.id] || 0; const maxed = lv >= а.макс
+      // Extra Life: ключ включает номер галактики — сбрасывается каждую галактику
+      const ключ = а.id === "extralife" ? `upg_extralife_g${текГалактика}` : `upg_${а.id}`
+      const lv = д[ключ] || 0; const maxed = lv >= а.макс
       const цена = а.ценыУровней[lv] || 0; const canBuy = !maxed && монеты >= цена
       const card = document.createElement("div"); card.className = "upgrade-card"
+      const описание = а.id === "extralife" && maxed
+        ? `✓ Bought for Galaxy ${текГалактика}` : (maxed ? "✓ MAX LEVEL" : а.описания[lv])
       card.innerHTML = `<div style="font-size:24px">${а.иконка}</div>
         <div style="flex:1">
           <div style="color:#fff;font-size:13px;font-weight:bold">${а.название}</div>
-          <div style="color:#888;font-size:11px;margin:2px 0">${maxed?"✓ MAX LEVEL":а.описания[lv]}</div>
+          <div style="color:#888;font-size:11px;margin:2px 0">${описание}</div>
           <div style="display:flex;gap:4px;margin-top:4px">
             ${Array.from({length:а.макс},(_,i)=>`<div style="width:18px;height:4px;border-radius:2px;background:${i<lv?'#aa44ff':'#222'}"></div>`).join("")}
           </div>
         </div>
         ${maxed
-          ? `<button disabled style="background:#222;color:#555;border:none;border-radius:8px;padding:7px 14px;font-size:12px">MAX</button>`
+          ? `<button disabled style="background:#222;color:#555;border:none;border-radius:8px;padding:7px 14px;font-size:12px">BOUGHT</button>`
           : `<button onclick="window.купитьАпгрейд('${а.id}')" style="background:${canBuy?'#aa44ff22':'#111'};border:1px solid ${canBuy?'#aa44ff55':'#333'};color:${canBuy?'#aa44ff':'#444'};border-radius:8px;padding:7px 14px;font-size:12px;cursor:${canBuy?'pointer':'default'}">💰 ${цена}</button>`
         }`
       list.appendChild(card)
@@ -433,11 +438,14 @@
   }
   window.купитьАпгрейд = function(id) {
     const а = АПГРЕЙДЫ.find(a=>a.id===id); if (!а) return
-    const д = загрузитьМагазин(); const lv = д["upg_"+а.id]||0; if (lv>=а.макс) return
+    const д = загрузитьМагазин()
+    const текГалактика = parseInt(localStorage.getItem("orbitRushMaxGalaxy") || "1")
+    const ключ = id === "extralife" ? `upg_extralife_g${текГалактика}` : `upg_${id}`
+    const lv = д[ключ] || 0; if (lv >= а.макс) return
     const цена = а.ценыУровней[lv]
     let м = parseInt(localStorage.getItem("orbitRushCoins")||"0"); if (м < цена) return
     м -= цена; localStorage.setItem("orbitRushCoins", String(м))
-    д["upg_"+а.id]=lv+1; сохранитьМагазин(д); window.открытьМагазин()
+    д[ключ] = lv + 1; сохранитьМагазин(д); window.открытьМагазин()
   }
   document.getElementById("shopBtn").addEventListener("click", ()=>window.открытьМагазин())
   document.getElementById("shopClose").addEventListener("click", ()=>{ document.getElementById("shopOverlay").style.display="none" })
@@ -589,10 +597,11 @@ function добавитьМонеты(н) {
 function загрузитьАпгрейды() {
   try {
     const д = JSON.parse(localStorage.getItem("orbitRushShop")||"{}")
+    const текГал = parseInt(localStorage.getItem("orbitRushMaxGalaxy") || "1")
     window._activeSkin = д.skin || "default"
     window._upgRapidfire = д["upg_rapidfire"] || 0
     window._upgMagnet = д["upg_magnet"] || 0
-    window._upgExtralife = д["upg_extralife"] || 0
+    window._upgExtralife = д[`upg_extralife_g${текГал}`] || 0
   } catch { window._activeSkin="default"; window._upgRapidfire=0; window._upgMagnet=0; window._upgExtralife=0 }
 }
 const достижения = JSON.parse(localStorage.getItem("orbitRushAch") || "{}")
