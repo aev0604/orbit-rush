@@ -284,9 +284,11 @@
     { id:"rainbow",  иконка:"🌈", название:"Rainbow",  цена:1000, цвет:"#ff44aa", двигатель:"#ffcc00", описание:"Ultra rare" },
   ]
   const АПГРЕЙДЫ = [
-    { id:"rapidfire", иконка:"🔫", название:"Rapid Fire",  макс:3, ценыУровней:[150,300,500], описания:["Fire rate +20%","Fire rate +40%","Fire rate +60%"] },
-    { id:"magnet",    иконка:"🧲", название:"Magnet+",     макс:3, ценыУровней:[150,300,450], описания:["Range +30%","Range +60%","Range +100%"] },
-    { id:"extralife", иконка:"❤️", название:"Extra Life",  макс:1, ценыУровней:[300], описания:["+1 life on start (once per galaxy)"] },
+    { id:"rapidfire",      иконка:"🔫", название:"Rapid Fire",      макс:3, ценыУровней:[150,300,500], описания:["Fire rate +20%","Fire rate +40%","Fire rate +60%"] },
+    { id:"magnet",         иконка:"🧲", название:"Magnet+",         макс:3, ценыУровней:[150,300,450], описания:["Range +30%","Range +60%","Range +100%"] },
+    { id:"extralife",      иконка:"❤️", название:"Extra Life",      макс:1, ценыУровней:[300], описания:["+1 life on start (once per galaxy)"] },
+    { id:"bubbleshield",   иконка:"🫧", название:"Bubble Shield",   макс:1, ценыУровней:[350], описания:["Start with shield (once per galaxy)"] },
+    { id:"shieldrecharge", иконка:"🛡️", название:"Shield Recharge", макс:3, ценыУровней:[200,400,600], описания:["Shield lasts +20%","Shield lasts +40%","Shield lasts +60%"] },
   ]
   function сохранитьМагазин(д) { localStorage.setItem("orbitRushShop", JSON.stringify(д)) }
   function загрузитьМагазин() { try { return JSON.parse(localStorage.getItem("orbitRushShop") || "{}") } catch { return {} } }
@@ -328,12 +330,13 @@
     const текГалактика = parseInt(localStorage.getItem("orbitRushMaxGalaxy") || "1")
     АПГРЕЙДЫ.forEach(а => {
       // Extra Life: ключ включает номер галактики — сбрасывается каждую галактику
-      const ключ = а.id === "extralife" ? `upg_extralife_g${текГалактика}` : `upg_${а.id}`
+      const перГалактика = а.id === "extralife" || а.id === "bubbleshield"
+      const ключ = перГалактика ? `upg_${а.id}_g${текГалактика}` : `upg_${а.id}`
       const lv = д[ключ] || 0; const maxed = lv >= а.макс
       const цена = а.ценыУровней[lv] || 0; const canBuy = !maxed && монеты >= цена
       const card = document.createElement("div"); card.className = "upgrade-card"
-      const описание = а.id === "extralife" && maxed
-        ? `✓ Bought for Galaxy ${текГалактика}` : (maxed ? "✓ MAX LEVEL" : а.описания[lv])
+      const описание = перГалактика && maxed
+        ? `✓ Active for Galaxy ${текГалактика}` : (maxed ? "✓ MAX LEVEL" : а.описания[lv])
       card.innerHTML = `<div style="font-size:24px">${а.иконка}</div>
         <div style="flex:1">
           <div style="color:#fff;font-size:13px;font-weight:bold">${а.название}</div>
@@ -440,7 +443,8 @@
     const а = АПГРЕЙДЫ.find(a=>a.id===id); if (!а) return
     const д = загрузитьМагазин()
     const текГалактика = parseInt(localStorage.getItem("orbitRushMaxGalaxy") || "1")
-    const ключ = id === "extralife" ? `upg_extralife_g${текГалактика}` : `upg_${id}`
+    const перГалактика = id === "extralife" || id === "bubbleshield"
+    const ключ = перГалактика ? `upg_${id}_g${текГалактика}` : `upg_${id}`
     const lv = д[ключ] || 0; if (lv >= а.макс) return
     const цена = а.ценыУровней[lv]
     let м = parseInt(localStorage.getItem("orbitRushCoins")||"0"); if (м < цена) return
@@ -602,6 +606,8 @@ function загрузитьАпгрейды() {
     window._upgRapidfire = д["upg_rapidfire"] || 0
     window._upgMagnet = д["upg_magnet"] || 0
     window._upgExtralife = д[`upg_extralife_g${текГал}`] || 0
+    window._upgBubbleshield = д[`upg_bubbleshield_g${текГал}`] || 0
+    window._upgShieldrecharge = д["upg_shieldrecharge"] || 0
   } catch { window._activeSkin="default"; window._upgRapidfire=0; window._upgMagnet=0; window._upgExtralife=0 }
 }
 const достижения = JSON.parse(localStorage.getItem("orbitRushAch") || "{}")
@@ -778,6 +784,14 @@ function перезапуск() {
   загрузитьАпгрейды()
   перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
   if (window._upgExtralife && жизни < 4) жизни++
+  // Bubble Shield — стартуем со щитом
+  if (window._upgBubbleshield) {
+    активныйЩит = true
+    const базовыйЩит = 300
+    const бонус = (window._upgShieldrecharge || 0) * 0.2
+    таймерЩита = Math.round(базовыйЩит * (1 + бонус))
+    добЭффект(200, 200, "🫧 BUBBLE SHIELD!", "#4488ff")
+  }
   таймерВыстрела = 0
   уровень = startLvl
   скоростьМусора = 1.5 + (startLvl - 1) * 0.4
@@ -888,7 +902,12 @@ function создатьВрага() {
 
 function применитьБонус(тип, цвет) {
   вибрация(50); звук.бонус()
-  if (тип === "щит")     { активныйЩит = true;     таймерЩита = 300;     добЭффект(корабль.x, корабль.y-30, т.щит,    "#4488ff") }
+  if (тип === "щит") {
+    const базовыйЩит = 300
+    const бонус = (window._upgShieldrecharge || 0) * 0.2
+    активныйЩит = true; таймерЩита = Math.round(базовыйЩит * (1 + бонус))
+    добЭффект(корабль.x, корабль.y-30, т.щит, "#4488ff")
+  }
   if (тип === "магнит")  { активныйМагнит = true;   таймерМагнита = 300;   добЭффект(корабль.x, корабль.y-30, т.магнит,  "#ff44aa") }
   if (тип === "медленно") { активноеЗамедление = true; таймерЗамедления = 300; добЭффект(корабль.x, корабль.y-30, т.медленно, "#ffcc00") }
   взрыв(корабль.x, корабль.y, цвет, 20)
