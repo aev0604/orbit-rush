@@ -93,13 +93,12 @@
     // Сохраняем только лучший результат на имя — один игрок = одна запись
     window.сохранитьГлобальныйРезультат = async function(очки, имя) {
       const finalName = (имя || localStorage.getItem("orbitRushName") || "Anonymous").trim()
-      if (!finalName || finalName === "Player") return
+      if (!finalName || finalName === "Player" || !очки || очки <= 0) return
+      const округлённыеОчки = Math.round(очки)
       try {
-        // Ищем существующую запись этого игрока
         const q = query(ref(db, 'leaderboard'), orderByChild('name'), equalTo(finalName))
         const snap = await get(q)
         if (snap.exists()) {
-          // Обновляем только если новый результат выше
           let лучшийКлюч = null, лучшийРезультат = 0
           snap.forEach(child => {
             if (child.val().score >= лучшийРезультат) {
@@ -107,14 +106,18 @@
               лучшийКлюч = child.key
             }
           })
-          if (очки > лучшийРезультат && лучшийКлюч) {
-            await set(ref(db, `leaderboard/${лучшийКлюч}`), { score: Math.round(очки), name: finalName, ts: Date.now() })
+          // Обновляем если новый результат выше
+          if (округлённыеОчки > лучшийРезультат && лучшийКлюч) {
+            await set(ref(db, `leaderboard/${лучшийКлюч}`), { score: округлённыеОчки, name: finalName, ts: Date.now() })
           }
         } else {
-          // Новый игрок — создаём запись
-          await push(ref(db, 'leaderboard'), { score: Math.round(очки), name: finalName, ts: Date.now() })
+          // Новый игрок — всегда создаём запись
+          await push(ref(db, 'leaderboard'), { score: округлённыеОчки, name: finalName, ts: Date.now() })
         }
-      } catch(e) {}
+      } catch(e) {
+        // Если ошибка — просто push без проверки дублей
+        try { await push(ref(db, 'leaderboard'), { score: округлённыеОчки, name: finalName, ts: Date.now() }) } catch(e2) {}
+      }
     };
 
     window.загрузитьГлобальныйТоп = async function() {
@@ -302,8 +305,11 @@
       const canBuy = монеты >= с.цена && !owned
       const card = document.createElement("div")
       card.className = "skin-card"+(isEquipped?" equipped":"")+(owned&&!isEquipped?" owned":"")+((!owned&&!canBuy)?" locked":"")
-      card.innerHTML = `<div style="font-size:26px">${с.иконка}</div>
-        <div style="color:#fff;font-size:12px;font-weight:bold;margin:4px 0">${с.название}</div>
+      // Уникальный ID для canvas в каждой карточке
+      const canvasId = `ship_preview_${с.id}`
+      card.innerHTML = `
+        <canvas id="${canvasId}" width="70" height="70" style="border-radius:8px;background:#06060f;display:block;margin:0 auto 4px;"></canvas>
+        <div style="color:#fff;font-size:12px;font-weight:bold;margin:2px 0">${с.название}</div>
         <div style="color:#666;font-size:10px;margin-bottom:6px">${с.описание}</div>
         ${isEquipped
           ? `<div style="color:#00d4aa;font-size:11px;font-weight:bold">✓ EQUIPPED</div>`
@@ -312,9 +318,10 @@
             : `<div style="color:${canBuy?'#ffd700':'#555'};font-size:12px;font-weight:bold">💰 ${с.цена}</div>
                ${canBuy?`<button onclick="window.купитьСкин('${с.id}')" style="width:100%;padding:5px;border-radius:6px;background:#ffcc0022;border:1px solid #ffcc0055;color:#ffcc00;font-size:11px;cursor:pointer;margin-top:4px">BUY</button>`:'<div style="color:#333;font-size:10px">Need more 💰</div>'}`
         }`
-      card.addEventListener("mouseenter", ()=>рисПревью(с.цвет,с.двигатель))
       card.addEventListener("click", ()=>рисПревью(с.цвет,с.двигатель))
       grid.appendChild(card)
+      // Рисуем корабль в карточке после добавления в DOM
+      requestAnimationFrame(() => рисКорабльВКарточке(canvasId, с.id, с.цвет, с.двигатель))
     })
     // --- Апгрейды ---
     const list = document.getElementById("upgradeList"); list.innerHTML = ""
@@ -337,6 +344,65 @@
       list.appendChild(card)
     })
     const тС = СКИНЫ.find(с=>с.id===equipped)||СКИНЫ[0]; рисПревью(тС.цвет,тС.двигатель)
+  }
+
+  window.рисКорабльВКарточке = function(canvasId, скинИд, корЦвет, двЦвет) {
+    const cv = document.getElementById(canvasId); if (!cv) return
+    const c = cv.getContext("2d"); c.clearRect(0,0,70,70)
+    c.fillStyle="#06060f"; c.fillRect(0,0,70,70)
+    const x=35, y=40
+
+    function glow(цвет, blur) { c.shadowColor=цвет; c.shadowBlur=blur }
+    function noGlow() { c.shadowBlur=0 }
+
+    // Двигатель / след — уникальный для каждого скина
+    if (скинИд === "default") {
+      const г = c.createLinearGradient(x,y+10,x,y+26); г.addColorStop(0,двЦвет); г.addColorStop(1,"transparent")
+      glow(двЦвет,10); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+14,4,10,0,0,Math.PI*2); c.fill()
+    } else if (скинИд === "phoenix") {
+      for (let i=-1;i<=1;i++) {
+        const г=c.createLinearGradient(x,y+10,x,y+24); г.addColorStop(0,"#ffff00"); г.addColorStop(1,"transparent")
+        glow(двЦвет,12); c.fillStyle=г; c.beginPath(); c.ellipse(x+i*5,y+14,3,9,0,0,Math.PI*2); c.fill()
+      }
+    } else if (скинИд === "frost") {
+      const г=c.createLinearGradient(x,y+8,x,y+26); г.addColorStop(0,"#fff"); г.addColorStop(1,"transparent")
+      glow(двЦвет,14); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+14,6,12,0,0,Math.PI*2); c.fill()
+      c.globalAlpha=0.7; c.font="9px Arial"; c.textAlign="center"; c.fillText("❄",x-8,y+18); c.fillText("❄",x+8,y+18); c.globalAlpha=1
+    } else if (скинИд === "thunder") {
+      const г=c.createLinearGradient(x,y+8,x,y+24); г.addColorStop(0,"#fff"); г.addColorStop(1,"transparent")
+      glow(двЦвет,16); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+14,5,10,0,0,Math.PI*2); c.fill()
+      c.strokeStyle="#ffffaa"; c.lineWidth=1.5; glow("#ffff00",8)
+      c.beginPath(); c.moveTo(x,y+12); c.lineTo(x-5,y+20); c.lineTo(x+5,y+20); c.stroke()
+    } else if (скинИд === "alien") {
+      const г=c.createLinearGradient(x,y+8,x,y+26); г.addColorStop(0,"#fff"); г.addColorStop(1,"transparent")
+      glow(двЦвет,16); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+14,6,11,0,0,Math.PI*2); c.fill()
+      // Орбитальные точки
+      for(let i=0;i<3;i++){const а=i*(Math.PI*2/3); glow(двЦвет,6); c.fillStyle=двЦвет; c.beginPath(); c.arc(x+Math.cos(а)*10,y+14+Math.sin(а)*4,2,0,Math.PI*2); c.fill()}
+    } else if (скинИд === "diamond") {
+      const rainbow=`hsl(200,100%,70%)`
+      const г=c.createLinearGradient(x,y+6,x,y+28); г.addColorStop(0,"#fff"); г.addColorStop(0.5,rainbow); г.addColorStop(1,"transparent")
+      glow(rainbow,16); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+15,7,13,0,0,Math.PI*2); c.fill()
+      // Блики
+      c.fillStyle="#fff"; c.globalAlpha=0.8; c.beginPath(); c.moveTo(x,y+8); c.lineTo(x+3,y+13); c.lineTo(x,y+18); c.lineTo(x-3,y+13); c.closePath(); c.fill(); c.globalAlpha=1
+    } else if (скинИд === "rainbow") {
+      const цвета=["#ff4444","#ffcc00","#44ff44","#4488ff","#ff44ff"]
+      for(let i=0;i<5;i++){
+        const г=c.createLinearGradient(x,y+10,x,y+24); г.addColorStop(0,цвета[i]); г.addColorStop(1,"transparent")
+        glow(цвета[i],8); c.fillStyle=г; c.globalAlpha=0.9
+        c.beginPath(); c.ellipse(x+(i-2)*4,y+15,2.5,9,0,0,Math.PI*2); c.fill()
+      }
+      c.globalAlpha=1
+    }
+    noGlow()
+
+    // Корпус корабля
+    glow(корЦвет,10); c.fillStyle=корЦвет
+    c.beginPath(); c.moveTo(x,y-16); c.lineTo(x+11,y+10); c.lineTo(x-11,y+10); c.closePath(); c.fill()
+    c.fillStyle=корЦвет+"88"
+    c.beginPath(); c.moveTo(x-7,y+4); c.lineTo(x-16,y+12); c.lineTo(x-7,y+10); c.closePath(); c.fill()
+    c.beginPath(); c.moveTo(x+7,y+4); c.lineTo(x+16,y+12); c.lineTo(x+7,y+10); c.closePath(); c.fill()
+    noGlow(); c.fillStyle="#0a1a2e"; c.beginPath(); c.ellipse(x,y-2,4,6,0,0,Math.PI*2); c.fill()
+    glow(корЦвет,8); c.strokeStyle=корЦвет+"cc"; c.lineWidth=1; c.stroke(); noGlow()
   }
 
   window.рисПревью = function(цвет, дЦ) {
@@ -681,7 +747,7 @@ function следующийШаг() {
   if (онбординг.шаг >= 4) {
     const startLvl = window._startLevel || 1
     уровень = startLvl
-    скоростьМусора = 2 + (startLvl - 1) * 0.7
+    скоростьМусора = 1.5 + (startLvl - 1) * 0.4
     очкиДоСледующегоУровня = 1000
     максДостигнутыйУровень = parseInt(localStorage.getItem("orbitRushMaxLevel") || "1")
     предыдущийУровень = startLvl
@@ -705,7 +771,7 @@ function перезапуск() {
   if (window._upgExtralife && жизни < 4) жизни++
   таймерВыстрела = 0
   уровень = startLvl
-  скоростьМусора = 2 + (startLvl - 1) * 0.7
+  скоростьМусора = 1.5 + (startLvl - 1) * 0.4
   очкиДоСледующегоУровня = 1000
   состояниеПереходУровня = false
   новыйРекордФлаг = false
@@ -1284,7 +1350,7 @@ function игровойЦикл() {
       }
     }
     if (таймерУскорения >= 600) {
-      скоростьМусора += 0.3; таймерУскорения = 0
+      скоростьМусора += 0.15; таймерУскорения = 0
       const у = Math.floor((скоростьМусора-2)/0.4)+1
       if (у > предыдущийУровень) { звук.уровень(); предыдущийУровень = у; добЭффект(200, 250, `LEVEL ${у} 🚀`, "#ffcc00") }
     }
@@ -1312,7 +1378,7 @@ function игровойЦикл() {
       // Показываем HTML кнопки через 1.5 сек (когда таймер < 100)
       window._продолжитьУровень = () => {
         состояниеПереходУровня = false; состояние = "игра"
-        скоростьМусора = (2 + (((уровень-1)%5)) * 0.7) * (1 + (Math.floor((уровень-1)/5)) * 0.15)
+        скоростьМусора = (1.5 + (((уровень-1)%5)) * 0.4) * (1 + (Math.floor((уровень-1)/5)) * 0.15)
         загрузитьАпгрейды(); перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
       }
       setTimeout(() => {
@@ -1328,13 +1394,20 @@ function игровойЦикл() {
         if (разблокировать(ид)) { новоеДостижение = д; таймерДостижения = 200 }
       }
     }
-    if (кадр % 55  === 0) создатьМусор()
-    if (кадр % 120 === 0) создатьАстероид()
+    // Частота спауна зависит от уровня — на ранних уровнях реже
+    const лвлВГал = ((уровень-1)%5)+1
+    const мусорЧастота = Math.max(30, 100 - лвлВГал * 9)        // Lvl1=91, Lvl2=82... Lvl5=55
+    const астЧастота   = Math.max(60, 220 - лвлВГал * 20)       // Lvl1=200, Lvl2=180... Lvl5=120
+    const врагЧастота  = Math.max(100, 350 - лвлВГал * 40)      // Враги появляются реже на ранних уровнях
+    const мешокЧастота = Math.max(150, 300 - лвлВГал * 20)
+
+    if (кадр % мусорЧастота === 0) создатьМусор()
+    if (кадр % астЧастота   === 0) создатьАстероид()
     if (кадр % 300 === 0) создатьБонус()
     if (кадр % 600 === 0) создатьЧёрнуюДыру()
     if (кадр % 90  === 0) создатьХорошийЭлемент()
-    if (кадр % 150 === 0) создатьВрага()
-    if (кадр % 200 === 0) создатьМешокДенег()
+    if (кадр % врагЧастота  === 0) создатьВрага()
+    if (кадр % мешокЧастота === 0) создатьМешокДенег()
     // Босс каждые 500 очков
     const следующийБосс = Math.floor(счёт / 500) * 500
     if (счёт >= 500 && счёт % 500 < 30 && !босс && кадр % 10 === 0) создатьБосса()
