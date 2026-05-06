@@ -768,6 +768,13 @@ function следующийШаг() {
     предыдущийУровень = startLvl
     загрузитьАпгрейды()
     перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
+    if (window._upgExtralife && жизни < 4) жизни++
+    активныйЩит = активныйМагнит = активноеЗамедление = false
+    if (window._upgBubbleshield) {
+      активныйЩит = true
+      const бонус = (window._upgShieldrecharge || 0) * 0.2
+      таймерЩита = Math.round(300 * (1 + бонус))
+    }
     состояние = "игра"
   }
 }
@@ -784,14 +791,6 @@ function перезапуск() {
   загрузитьАпгрейды()
   перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
   if (window._upgExtralife && жизни < 4) жизни++
-  // Bubble Shield — стартуем со щитом
-  if (window._upgBubbleshield) {
-    активныйЩит = true
-    const базовыйЩит = 300
-    const бонус = (window._upgShieldrecharge || 0) * 0.2
-    таймерЩита = Math.round(базовыйЩит * (1 + бонус))
-    добЭффект(200, 200, "🫧 BUBBLE SHIELD!", "#4488ff")
-  }
   таймерВыстрела = 0
   уровень = startLvl
   скоростьМусора = 1.5 + (startLvl - 1) * 0.4
@@ -799,7 +798,12 @@ function перезапуск() {
   состояниеПереходУровня = false
   новыйРекордФлаг = false
   активныйЩит = активныйМагнит = активноеЗамедление = false
-  // Применяем лучший результат из Firebase если он выше
+  // Bubble Shield — стартуем со щитом (ПОСЛЕ сброса!)
+  if (window._upgBubbleshield) {
+    активныйЩит = true
+    const бонус = (window._upgShieldrecharge || 0) * 0.2
+    таймерЩита = Math.round(300 * (1 + бонус))
+  }
   предыдущийУровень = startLvl; рейтингТекущий = []; состояние = "игра"
 }
 function вибрация(м) { try { navigator.vibrate && navigator.vibrate(м) } catch (e) {} }
