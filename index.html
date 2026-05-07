@@ -93,12 +93,13 @@
     // Сохраняем только лучший результат на имя — один игрок = одна запись
     window.сохранитьГлобальныйРезультат = async function(очки, имя) {
       const finalName = (имя || localStorage.getItem("orbitRushName") || "Anonymous").trim()
-      if (!finalName || finalName === "Player" || !очки || очки <= 0) return
-      const округлённыеОчки = Math.round(очки)
+      if (!finalName || finalName === "Player") return
       try {
+        // Ищем существующую запись этого игрока
         const q = query(ref(db, 'leaderboard'), orderByChild('name'), equalTo(finalName))
         const snap = await get(q)
         if (snap.exists()) {
+          // Обновляем только если новый результат выше
           let лучшийКлюч = null, лучшийРезультат = 0
           snap.forEach(child => {
             if (child.val().score >= лучшийРезультат) {
@@ -106,18 +107,14 @@
               лучшийКлюч = child.key
             }
           })
-          // Обновляем если новый результат выше
-          if (округлённыеОчки > лучшийРезультат && лучшийКлюч) {
-            await set(ref(db, `leaderboard/${лучшийКлюч}`), { score: округлённыеОчки, name: finalName, ts: Date.now() })
+          if (очки > лучшийРезультат && лучшийКлюч) {
+            await set(ref(db, `leaderboard/${лучшийКлюч}`), { score: Math.round(очки), name: finalName, ts: Date.now() })
           }
         } else {
-          // Новый игрок — всегда создаём запись
-          await push(ref(db, 'leaderboard'), { score: округлённыеОчки, name: finalName, ts: Date.now() })
+          // Новый игрок — создаём запись
+          await push(ref(db, 'leaderboard'), { score: Math.round(очки), name: finalName, ts: Date.now() })
         }
-      } catch(e) {
-        // Если ошибка — просто push без проверки дублей
-        try { await push(ref(db, 'leaderboard'), { score: округлённыеОчки, name: finalName, ts: Date.now() }) } catch(e2) {}
-      }
+      } catch(e) {}
     };
 
     window.загрузитьГлобальныйТоп = async function() {
@@ -286,8 +283,7 @@
   const АПГРЕЙДЫ = [
     { id:"rapidfire",      иконка:"🔫", название:"Rapid Fire",      макс:3, ценыУровней:[150,300,500], описания:["Shoot faster +20%","Shoot faster +40%","Shoot faster +60%"] },
     { id:"magnet",         иконка:"🧲", название:"Magnet",           макс:3, ценыУровней:[150,300,450], описания:["Collect range +30%","Collect range +60%","Collect range x2"] },
-    { id:"extralife",      иконка:"❤️", название:"Extra Life",      макс:1, ценыУровней:[300], описания:["Start each game with +1 life (resets per galaxy)"] },
-    { id:"bubbleshield",   иконка:"🫧", название:"Bubble Shield",   макс:1, ценыУровней:[350], описания:["Start each game with shield active (resets per galaxy)"] },
+    { id:"extralife",      иконка:"❤️", название:"Extra Life",      макс:1, ценыУровней:[300],         описания:["Start each game with +1 life (resets per galaxy)"] },
     { id:"shieldrecharge", иконка:"🛡️", название:"Shield Duration",  макс:3, ценыУровней:[200,400,600], описания:["🛡️ pickups last +20% longer","🛡️ pickups last +40% longer","🛡️ pickups last +60% longer"] },
   ]
   function сохранитьМагазин(д) { localStorage.setItem("orbitRushShop", JSON.stringify(д)) }
@@ -307,11 +303,8 @@
       const canBuy = монеты >= с.цена && !owned
       const card = document.createElement("div")
       card.className = "skin-card"+(isEquipped?" equipped":"")+(owned&&!isEquipped?" owned":"")+((!owned&&!canBuy)?" locked":"")
-      // Уникальный ID для canvas в каждой карточке
-      const canvasId = `ship_preview_${с.id}`
-      card.innerHTML = `
-        <canvas id="${canvasId}" width="70" height="70" style="border-radius:8px;background:#06060f;display:block;margin:0 auto 4px;"></canvas>
-        <div style="color:#fff;font-size:12px;font-weight:bold;margin:2px 0">${с.название}</div>
+      card.innerHTML = `<div style="font-size:26px">${с.иконка}</div>
+        <div style="color:#fff;font-size:12px;font-weight:bold;margin:4px 0">${с.название}</div>
         <div style="color:#666;font-size:10px;margin-bottom:6px">${с.описание}</div>
         ${isEquipped
           ? `<div style="color:#00d4aa;font-size:11px;font-weight:bold">✓ EQUIPPED</div>`
@@ -320,23 +313,19 @@
             : `<div style="color:${canBuy?'#ffd700':'#555'};font-size:12px;font-weight:bold">💰 ${с.цена}</div>
                ${canBuy?`<button onclick="window.купитьСкин('${с.id}')" style="width:100%;padding:5px;border-radius:6px;background:#ffcc0022;border:1px solid #ffcc0055;color:#ffcc00;font-size:11px;cursor:pointer;margin-top:4px">BUY</button>`:'<div style="color:#333;font-size:10px">Need more 💰</div>'}`
         }`
+      card.addEventListener("mouseenter", ()=>рисПревью(с.цвет,с.двигатель))
       card.addEventListener("click", ()=>рисПревью(с.цвет,с.двигатель))
       grid.appendChild(card)
-      // Рисуем корабль в карточке после добавления в DOM
-      requestAnimationFrame(() => рисКорабльВКарточке(canvasId, с.id, с.цвет, с.двигатель))
     })
     // --- Апгрейды ---
     const list = document.getElementById("upgradeList"); list.innerHTML = ""
     const текГалактика = parseInt(localStorage.getItem("orbitRushMaxGalaxy") || "1")
     АПГРЕЙДЫ.forEach(а => {
-      // Extra Life: ключ включает номер галактики — сбрасывается каждую галактику
-      const перГалактика = а.id === "extralife" || а.id === "bubbleshield"
-      const ключ = перГалактика ? `upg_${а.id}_g${текГалактика}` : `upg_${а.id}`
+      const ключ = а.id === "extralife" ? `upg_extralife_g${текГалактика}` : `upg_${а.id}`
       const lv = д[ключ] || 0; const maxed = lv >= а.макс
       const цена = а.ценыУровней[lv] || 0; const canBuy = !maxed && монеты >= цена
+      const описание = а.id === "extralife" && maxed ? `✓ Active for Galaxy ${текГалактика}` : (maxed ? "✓ MAX LEVEL" : а.описания[lv])
       const card = document.createElement("div"); card.className = "upgrade-card"
-      const описание = перГалактика && maxed
-        ? `✓ Active for Galaxy ${текГалактика}` : (maxed ? "✓ MAX LEVEL" : а.описания[lv])
       card.innerHTML = `<div style="font-size:24px">${а.иконка}</div>
         <div style="flex:1">
           <div style="color:#fff;font-size:13px;font-weight:bold">${а.название}</div>
@@ -346,71 +335,12 @@
           </div>
         </div>
         ${maxed
-          ? `<button disabled style="background:#222;color:#555;border:none;border-radius:8px;padding:7px 14px;font-size:12px">BOUGHT</button>`
+          ? `<button disabled style="background:#222;color:#555;border:none;border-radius:8px;padding:7px 14px;font-size:12px">${а.id==="extralife"?"BOUGHT":"MAX"}</button>`
           : `<button onclick="window.купитьАпгрейд('${а.id}')" style="background:${canBuy?'#aa44ff22':'#111'};border:1px solid ${canBuy?'#aa44ff55':'#333'};color:${canBuy?'#aa44ff':'#444'};border-radius:8px;padding:7px 14px;font-size:12px;cursor:${canBuy?'pointer':'default'}">💰 ${цена}</button>`
         }`
       list.appendChild(card)
     })
     const тС = СКИНЫ.find(с=>с.id===equipped)||СКИНЫ[0]; рисПревью(тС.цвет,тС.двигатель)
-  }
-
-  window.рисКорабльВКарточке = function(canvasId, скинИд, корЦвет, двЦвет) {
-    const cv = document.getElementById(canvasId); if (!cv) return
-    const c = cv.getContext("2d"); c.clearRect(0,0,70,70)
-    c.fillStyle="#06060f"; c.fillRect(0,0,70,70)
-    const x=35, y=40
-
-    function glow(цвет, blur) { c.shadowColor=цвет; c.shadowBlur=blur }
-    function noGlow() { c.shadowBlur=0 }
-
-    // Двигатель / след — уникальный для каждого скина
-    if (скинИд === "default") {
-      const г = c.createLinearGradient(x,y+10,x,y+26); г.addColorStop(0,двЦвет); г.addColorStop(1,"transparent")
-      glow(двЦвет,10); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+14,4,10,0,0,Math.PI*2); c.fill()
-    } else if (скинИд === "phoenix") {
-      for (let i=-1;i<=1;i++) {
-        const г=c.createLinearGradient(x,y+10,x,y+24); г.addColorStop(0,"#ffff00"); г.addColorStop(1,"transparent")
-        glow(двЦвет,12); c.fillStyle=г; c.beginPath(); c.ellipse(x+i*5,y+14,3,9,0,0,Math.PI*2); c.fill()
-      }
-    } else if (скинИд === "frost") {
-      const г=c.createLinearGradient(x,y+8,x,y+26); г.addColorStop(0,"#fff"); г.addColorStop(1,"transparent")
-      glow(двЦвет,14); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+14,6,12,0,0,Math.PI*2); c.fill()
-      c.globalAlpha=0.7; c.font="9px Arial"; c.textAlign="center"; c.fillText("❄",x-8,y+18); c.fillText("❄",x+8,y+18); c.globalAlpha=1
-    } else if (скинИд === "thunder") {
-      const г=c.createLinearGradient(x,y+8,x,y+24); г.addColorStop(0,"#fff"); г.addColorStop(1,"transparent")
-      glow(двЦвет,16); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+14,5,10,0,0,Math.PI*2); c.fill()
-      c.strokeStyle="#ffffaa"; c.lineWidth=1.5; glow("#ffff00",8)
-      c.beginPath(); c.moveTo(x,y+12); c.lineTo(x-5,y+20); c.lineTo(x+5,y+20); c.stroke()
-    } else if (скинИд === "alien") {
-      const г=c.createLinearGradient(x,y+8,x,y+26); г.addColorStop(0,"#fff"); г.addColorStop(1,"transparent")
-      glow(двЦвет,16); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+14,6,11,0,0,Math.PI*2); c.fill()
-      // Орбитальные точки
-      for(let i=0;i<3;i++){const а=i*(Math.PI*2/3); glow(двЦвет,6); c.fillStyle=двЦвет; c.beginPath(); c.arc(x+Math.cos(а)*10,y+14+Math.sin(а)*4,2,0,Math.PI*2); c.fill()}
-    } else if (скинИд === "diamond") {
-      const rainbow=`hsl(200,100%,70%)`
-      const г=c.createLinearGradient(x,y+6,x,y+28); г.addColorStop(0,"#fff"); г.addColorStop(0.5,rainbow); г.addColorStop(1,"transparent")
-      glow(rainbow,16); c.fillStyle=г; c.beginPath(); c.ellipse(x,y+15,7,13,0,0,Math.PI*2); c.fill()
-      // Блики
-      c.fillStyle="#fff"; c.globalAlpha=0.8; c.beginPath(); c.moveTo(x,y+8); c.lineTo(x+3,y+13); c.lineTo(x,y+18); c.lineTo(x-3,y+13); c.closePath(); c.fill(); c.globalAlpha=1
-    } else if (скинИд === "rainbow") {
-      const цвета=["#ff4444","#ffcc00","#44ff44","#4488ff","#ff44ff"]
-      for(let i=0;i<5;i++){
-        const г=c.createLinearGradient(x,y+10,x,y+24); г.addColorStop(0,цвета[i]); г.addColorStop(1,"transparent")
-        glow(цвета[i],8); c.fillStyle=г; c.globalAlpha=0.9
-        c.beginPath(); c.ellipse(x+(i-2)*4,y+15,2.5,9,0,0,Math.PI*2); c.fill()
-      }
-      c.globalAlpha=1
-    }
-    noGlow()
-
-    // Корпус корабля
-    glow(корЦвет,10); c.fillStyle=корЦвет
-    c.beginPath(); c.moveTo(x,y-16); c.lineTo(x+11,y+10); c.lineTo(x-11,y+10); c.closePath(); c.fill()
-    c.fillStyle=корЦвет+"88"
-    c.beginPath(); c.moveTo(x-7,y+4); c.lineTo(x-16,y+12); c.lineTo(x-7,y+10); c.closePath(); c.fill()
-    c.beginPath(); c.moveTo(x+7,y+4); c.lineTo(x+16,y+12); c.lineTo(x+7,y+10); c.closePath(); c.fill()
-    noGlow(); c.fillStyle="#0a1a2e"; c.beginPath(); c.ellipse(x,y-2,4,6,0,0,Math.PI*2); c.fill()
-    glow(корЦвет,8); c.strokeStyle=корЦвет+"cc"; c.lineWidth=1; c.stroke(); noGlow()
   }
 
   window.рисПревью = function(цвет, дЦ) {
@@ -443,13 +373,12 @@
     const а = АПГРЕЙДЫ.find(a=>a.id===id); if (!а) return
     const д = загрузитьМагазин()
     const текГалактика = parseInt(localStorage.getItem("orbitRushMaxGalaxy") || "1")
-    const перГалактика = id === "extralife" || id === "bubbleshield"
-    const ключ = перГалактика ? `upg_${id}_g${текГалактика}` : `upg_${id}`
-    const lv = д[ключ] || 0; if (lv >= а.макс) return
+    const ключ = id === "extralife" ? `upg_extralife_g${текГалактика}` : `upg_${id}`
+    const lv = д[ключ]||0; if (lv>=а.макс) return
     const цена = а.ценыУровней[lv]
     let м = parseInt(localStorage.getItem("orbitRushCoins")||"0"); if (м < цена) return
     м -= цена; localStorage.setItem("orbitRushCoins", String(м))
-    д[ключ] = lv + 1; сохранитьМагазин(д); window.открытьМагазин()
+    д[ключ]=lv+1; сохранитьМагазин(д); window.открытьМагазин()
   }
   document.getElementById("shopBtn").addEventListener("click", ()=>window.открытьМагазин())
   document.getElementById("shopClose").addEventListener("click", ()=>{ document.getElementById("shopOverlay").style.display="none" })
@@ -601,14 +530,12 @@ function добавитьМонеты(н) {
 function загрузитьАпгрейды() {
   try {
     const д = JSON.parse(localStorage.getItem("orbitRushShop")||"{}")
-    const текГал = parseInt(localStorage.getItem("orbitRushMaxGalaxy") || "1")
     window._activeSkin = д.skin || "default"
     window._upgRapidfire = д["upg_rapidfire"] || 0
     window._upgMagnet = д["upg_magnet"] || 0
-    window._upgExtralife = д[`upg_extralife_g${текГал}`] || 0
-    window._upgBubbleshield = д[`upg_bubbleshield_g${текГал}`] || 0
+    window._upgExtralife = д["upg_extralife"] || 0
     window._upgShieldrecharge = д["upg_shieldrecharge"] || 0
-  } catch { window._activeSkin="default"; window._upgRapidfire=0; window._upgMagnet=0; window._upgExtralife=0 }
+  } catch { window._activeSkin="default"; window._upgRapidfire=0; window._upgMagnet=0; window._upgExtralife=0; window._upgShieldrecharge=0 }
 }
 const достижения = JSON.parse(localStorage.getItem("orbitRushAch") || "{}")
 function разблокировать(ид) {
@@ -762,19 +689,12 @@ function следующийШаг() {
   if (онбординг.шаг >= 4) {
     const startLvl = window._startLevel || 1
     уровень = startLvl
-    скоростьМусора = 1.5 + (startLvl - 1) * 0.4
+    скоростьМусора = 2 + (startLvl - 1) * 0.7
     очкиДоСледующегоУровня = 1000
     максДостигнутыйУровень = parseInt(localStorage.getItem("orbitRushMaxLevel") || "1")
     предыдущийУровень = startLvl
     загрузитьАпгрейды()
     перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
-    if (window._upgExtralife && жизни < 4) жизни++
-    активныйЩит = активныйМагнит = активноеЗамедление = false
-    if (window._upgBubbleshield) {
-      активныйЩит = true
-      const бонус = (window._upgShieldrecharge || 0) * 0.2
-      таймерЩита = Math.round(300 * (1 + бонус))
-    }
     состояние = "игра"
   }
 }
@@ -793,17 +713,12 @@ function перезапуск() {
   if (window._upgExtralife && жизни < 4) жизни++
   таймерВыстрела = 0
   уровень = startLvl
-  скоростьМусора = 1.5 + (startLvl - 1) * 0.4
+  скоростьМусора = 2 + (startLvl - 1) * 0.7
   очкиДоСледующегоУровня = 1000
   состояниеПереходУровня = false
   новыйРекордФлаг = false
   активныйЩит = активныйМагнит = активноеЗамедление = false
-  // Bubble Shield — стартуем со щитом (ПОСЛЕ сброса!)
-  if (window._upgBubbleshield) {
-    активныйЩит = true
-    const бонус = (window._upgShieldrecharge || 0) * 0.2
-    таймерЩита = Math.round(300 * (1 + бонус))
-  }
+  // Применяем лучший результат из Firebase если он выше
   предыдущийУровень = startLvl; рейтингТекущий = []; состояние = "игра"
 }
 function вибрация(м) { try { navigator.vibrate && navigator.vibrate(м) } catch (e) {} }
@@ -833,8 +748,9 @@ function создатьЧёрнуюДыру() {
 }
 function создатьБосса() {
   if (босс) return
-  босс = { x: 200, y: -80, скорость: 1.2, hp: 5, максHP: 5, пульс: 0, dx: 0.8 }
+  босс = { x: 200, y: -100, скорость: 1.0, hp: 10, максHP: 10, пульс: 0, dx: 0.6, фаза: 0 }
 }
+
 function создатьБонус() {
   const типы = [
     { тип:"щит",    иконка:"🛡️", цвет:"#4488ff" },
@@ -906,12 +822,7 @@ function создатьВрага() {
 
 function применитьБонус(тип, цвет) {
   вибрация(50); звук.бонус()
-  if (тип === "щит") {
-    const базовыйЩит = 300
-    const бонус = (window._upgShieldrecharge || 0) * 0.2
-    активныйЩит = true; таймерЩита = Math.round(базовыйЩит * (1 + бонус))
-    добЭффект(корабль.x, корабль.y-30, т.щит, "#4488ff")
-  }
+  if (тип === "щит") { активныйЩит = true; таймерЩита = Math.round(300*(1+(window._upgShieldrecharge||0)*0.2)); добЭффект(корабль.x, корабль.y-30, т.щит, "#4488ff") }
   if (тип === "магнит")  { активныйМагнит = true;   таймерМагнита = 300;   добЭффект(корабль.x, корабль.y-30, т.магнит,  "#ff44aa") }
   if (тип === "медленно") { активноеЗамедление = true; таймерЗамедления = 300; добЭффект(корабль.x, корабль.y-30, т.медленно, "#ffcc00") }
   взрыв(корабль.x, корабль.y, цвет, 20)
@@ -1086,59 +997,96 @@ function рисАстероид(а) {
 function рисЧёрнаяДыра(д) {
   д.пульс++
   ctx.save(); ctx.translate(д.x, д.y)
-  // Внешнее кольцо притяжения
-  for (let r = 50; r >= 20; r -= 10) {
-    ctx.globalAlpha = (50-r)/40 * 0.3
-    ctx.strokeStyle = "#aa44ff"; ctx.lineWidth = 2
+  // Большое предупреждающее кольцо
+  for (let r = 80; r >= 40; r -= 10) {
+    ctx.globalAlpha = (80-r)/60 * 0.4
+    ctx.strokeStyle = "#aa44ff"; ctx.lineWidth = 2.5
     ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.stroke()
   }
   ctx.globalAlpha = 1
-  // Спиральный эффект
-  ctx.strokeStyle = "#6600cc"; ctx.lineWidth = 1.5
-  for (let i = 0; i < 3; i++) {
-    const угол = (д.пульс*0.05) + (i*Math.PI*2/3)
-    ctx.beginPath(); ctx.arc(0, 0, 18, угол, угол + Math.PI*1.2); ctx.stroke()
+  // Вращающиеся спирали
+  ctx.strokeStyle = "#8800ff"; ctx.lineWidth = 2
+  for (let i = 0; i < 4; i++) {
+    const угол = (д.пульс*0.06) + (i*Math.PI/2)
+    ctx.beginPath(); ctx.arc(0, 0, 28, угол, угол + Math.PI*1.3); ctx.stroke()
   }
-  // Ядро
-  glow("#9900ff", 25)
-  const г = ctx.createRadialGradient(0,0,0, 0,0,16)
-  г.addColorStop(0, "#000000"); г.addColorStop(0.6, "#220044"); г.addColorStop(1, "#6600cc")
-  ctx.fillStyle = г; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill()
+  // Большое ядро
+  glow("#9900ff", 35)
+  const г = ctx.createRadialGradient(0,0,0, 0,0,26)
+  г.addColorStop(0, "#000000"); г.addColorStop(0.5, "#330055"); г.addColorStop(1, "#7700cc")
+  ctx.fillStyle = г; ctx.beginPath(); ctx.arc(0, 0, 26, 0, Math.PI*2); ctx.fill()
   noGlow(); ctx.globalAlpha = 1
-  // Иконка
-  ctx.font = "14px Arial"; ctx.textAlign = "center"; ctx.fillText("🌀", 0, 5)
+  // Большая иконка
+  ctx.font = "22px Arial"; ctx.textAlign = "center"; ctx.fillText("🌀", 0, 8)
+  // Предупреждение
+  ctx.fillStyle = `rgba(170,0,255,${0.5+Math.sin(д.пульс*0.15)*0.5})`
+  ctx.font = "bold 9px Arial"; ctx.fillText("DANGER", 0, -32)
   ctx.restore()
 }
 function рисБосс(б) {
   б.пульс++
+  б.фаза = (б.фаза || 0) + 0.05
   ctx.save(); ctx.translate(б.x, б.y)
-  // Ореол
-  glow("#ff0044", 30)
-  ctx.strokeStyle = `rgba(255,0,68,${0.3+Math.sin(б.пульс*0.1)*0.2})`
-  ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, 52, 0, Math.PI*2); ctx.stroke()
-  // Тело босса — большой астероид
-  ctx.beginPath()
-  for (let i = 0; i < 12; i++) {
-    const у = (i/12)*Math.PI*2, р = 40*(0.8+Math.sin(i*1.7+б.пульс*0.02)*0.2)
-    i === 0 ? ctx.moveTo(Math.cos(у)*р, Math.sin(у)*р) : ctx.lineTo(Math.cos(у)*р, Math.sin(у)*р)
+
+  // Предупреждающий ореол
+  glow("#ff00aa", 25)
+  ctx.strokeStyle = `rgba(255,0,170,${0.2+Math.sin(б.пульс*0.08)*0.15})`
+  ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 58, 0, Math.PI*2); ctx.stroke()
+
+  // Щупальца (6 штук)
+  for (let i = 0; i < 6; i++) {
+    const базУгол = (i/6)*Math.PI*2 + б.фаза
+    const волна = Math.sin(б.пульс*0.1 + i) * 8
+    ctx.strokeStyle = `rgba(0,255,136,0.7)`; ctx.lineWidth = 3
+    glow("#00ff88", 8)
+    ctx.beginPath(); ctx.moveTo(Math.cos(базУгол)*20, Math.sin(базУгол)*20)
+    ctx.quadraticCurveTo(
+      Math.cos(базУгол)*35 + Math.cos(базУгол+Math.PI/2)*волна,
+      Math.sin(базУгол)*35 + Math.sin(базУгол+Math.PI/2)*волна,
+      Math.cos(базУгол)*52, Math.sin(базУгол)*52
+    )
+    ctx.stroke()
+    // Кончик щупальца
+    ctx.fillStyle = "#00ff88"
+    ctx.beginPath(); ctx.arc(Math.cos(базУгол)*52, Math.sin(базУгол)*52, 4, 0, Math.PI*2); ctx.fill()
   }
-  ctx.closePath()
-  ctx.fillStyle = "#440011"; ctx.fill()
-  ctx.strokeStyle = "#ff0044"; ctx.lineWidth = 3; ctx.stroke()
+
+  // Тело — инопланетный организм
+  noGlow(); glow("#ff00aa", 20)
+  const г = ctx.createRadialGradient(0,0,0, 0,0,22)
+  г.addColorStop(0, "#220033"); г.addColorStop(0.6, "#660088"); г.addColorStop(1, "#ff00aa")
+  ctx.fillStyle = г; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill()
+
+  // Пульсирующий центр
+  const пульсР = 10 + Math.sin(б.пульс*0.15)*3
+  glow("#ffffff", 15)
+  ctx.fillStyle = "#ff88ff"
+  ctx.beginPath(); ctx.arc(0, 0, пульсР, 0, Math.PI*2); ctx.fill()
+
+  // Глаза
   noGlow()
-  // Кратеры
-  ctx.fillStyle = "#660022"
-  for (const [cx,cy,cr] of [[-12,-10,7],[10,-5,5],[-5,12,6]]) {
-    ctx.beginPath(); ctx.arc(cx,cy,cr,0,Math.PI*2); ctx.fill()
-  }
+  ctx.fillStyle = "#ff0000"
+  ctx.beginPath(); ctx.arc(-7, -5, 5, 0, Math.PI*2); ctx.fill()
+  ctx.beginPath(); ctx.arc(7, -5, 5, 0, Math.PI*2); ctx.fill()
+  ctx.fillStyle = "#000"
+  ctx.beginPath(); ctx.arc(-7+Math.cos(б.фаза)*2, -5, 2.5, 0, Math.PI*2); ctx.fill()
+  ctx.beginPath(); ctx.arc(7+Math.cos(б.фаза)*2, -5, 2.5, 0, Math.PI*2); ctx.fill()
+  ctx.fillStyle = "#ffffff"
+  ctx.beginPath(); ctx.arc(-6, -6, 1, 0, Math.PI*2); ctx.fill()
+  ctx.beginPath(); ctx.arc(8, -6, 1, 0, Math.PI*2); ctx.fill()
+
   // HP бар
-  ctx.fillStyle = "#330011"; ctx.fillRect(-40, 50, 80, 10)
+  noGlow()
+  ctx.fillStyle = "#330011"; ctx.fillRect(-45, 62, 90, 12); ctx.beginPath()
   ctx.fillStyle = `hsl(${б.hp/б.максHP*120},100%,50%)`
-  ctx.fillRect(-40, 50, 80*(б.hp/б.максHP), 10)
-  ctx.strokeStyle = "#ff0044"; ctx.lineWidth = 1; ctx.strokeRect(-40, 50, 80, 10)
-  // Метка
-  ctx.fillStyle = "#ff4466"; ctx.font = "bold 11px Arial"; ctx.textAlign = "center"
-  ctx.fillText(`BOSS  ${б.hp}/${б.максHP}`, 0, 75)
+  ctx.fillRect(-45, 62, 90*(б.hp/б.максHP), 12)
+  ctx.strokeStyle = "#ff00aa"; ctx.lineWidth = 1; ctx.strokeRect(-45, 62, 90, 12)
+
+  // Метка с HP
+  glow("#ff00aa", 8)
+  ctx.fillStyle = "#ff88ff"; ctx.font = "bold 11px Arial"; ctx.textAlign = "center"
+  ctx.fillText(`👾 ALIEN BOSS  ${б.hp}/${б.максHP}`, 0, 86)
+  noGlow()
   ctx.restore()
 }
 function рисПереходУровня() {
@@ -1382,7 +1330,7 @@ function игровойЦикл() {
       }
     }
     if (таймерУскорения >= 600) {
-      скоростьМусора += 0.15; таймерУскорения = 0
+      скоростьМусора += 0.3; таймерУскорения = 0
       const у = Math.floor((скоростьМусора-2)/0.4)+1
       if (у > предыдущийУровень) { звук.уровень(); предыдущийУровень = у; добЭффект(200, 250, `LEVEL ${у} 🚀`, "#ffcc00") }
     }
@@ -1410,7 +1358,7 @@ function игровойЦикл() {
       // Показываем HTML кнопки через 1.5 сек (когда таймер < 100)
       window._продолжитьУровень = () => {
         состояниеПереходУровня = false; состояние = "игра"
-        скоростьМусора = (1.5 + (((уровень-1)%5)) * 0.4) * (1 + (Math.floor((уровень-1)/5)) * 0.15)
+        скоростьМусора = (2 + (((уровень-1)%5)) * 0.7) * (1 + (Math.floor((уровень-1)/5)) * 0.15)
         загрузитьАпгрейды(); перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
       }
       setTimeout(() => {
@@ -1426,12 +1374,12 @@ function игровойЦикл() {
         if (разблокировать(ид)) { новоеДостижение = д; таймерДостижения = 200 }
       }
     }
-    // Частота спауна зависит от уровня — на ранних уровнях реже
+    // Частота спауна зависит от уровня — на ранних уровнях в 2 раза реже
     const лвлВГал = ((уровень-1)%5)+1
-    const мусорЧастота = Math.max(30, 100 - лвлВГал * 9)        // Lvl1=91, Lvl2=82... Lvl5=55
-    const астЧастота   = Math.max(60, 220 - лвлВГал * 20)       // Lvl1=200, Lvl2=180... Lvl5=120
-    const врагЧастота  = Math.max(100, 350 - лвлВГал * 40)      // Враги появляются реже на ранних уровнях
-    const мешокЧастота = Math.max(150, 300 - лвлВГал * 20)
+    const мусорЧастота = Math.max(30, 180 - лвлВГал * 18)   // Lvl1=162, Lvl2=144, Lvl3=126, Lvl4=108, Lvl5=90
+    const астЧастота   = Math.max(80, 400 - лвлВГал * 40)   // Lvl1=360, Lvl2=320, Lvl3=280, Lvl4=240, Lvl5=200
+    const врагЧастота  = Math.max(150, 500 - лвлВГал * 60)  // Враги с уровня 2, постепенно
+    const мешокЧастота = Math.max(200, 400 - лвлВГал * 30)
 
     if (кадр % мусорЧастота === 0) создатьМусор()
     if (кадр % астЧастота   === 0) создатьАстероид()
@@ -1589,7 +1537,7 @@ function игровойЦикл() {
       // Притяжение игрока при близком расстоянии
       const дx = д.x - корабль.x, дy = д.y - корабль.y
       const расст = Math.sqrt(дx*дx + дy*дy)
-      if (расст < 45 && таймерНеуязвимости === 0) {
+      if (расст < 55 && таймерНеуязвимости === 0) {
         // Мгновенная гибель!
         взрыв(корабль.x, корабль.y, "#9900ff", 30)
         добЭффект(корабль.x, корабль.y-30, "BLACK HOLE!", "#9900ff")
