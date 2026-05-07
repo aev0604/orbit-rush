@@ -705,6 +705,7 @@ function перезапуск() {
   мусорСписок.length = астероиды.length = эффекты.length = 0
   частицы.length = конфетти.length = бонусы.length = пули.length = 0
   чёрныеДыры.length = 0; хорошиеЭлементы.length = 0; врагиСписок.length = 0; мешкиДенег.length = 0; босс = null
+  localStorage.removeItem("orbitRushBossCount")
   текущаяГалактика = Math.floor((window._startLevel||1-1)/5)+1
   const ов = document.getElementById("shopBtnOverlay"); if (ов) ов.style.display = "none"
   монетыСессии = 0
@@ -748,7 +749,11 @@ function создатьЧёрнуюДыру() {
 }
 function создатьБосса() {
   if (босс) return
-  босс = { x: 200, y: -100, скорость: 1.0, hp: 10, максHP: 10, пульс: 0, dx: 0.6, фаза: 0 }
+  // Чередуем боссов: чётные появления — астероид, нечётные — пришелец
+  const номерБосса = parseInt(localStorage.getItem("orbitRushBossCount") || "0")
+  localStorage.setItem("orbitRushBossCount", String(номерБосса + 1))
+  const тип = номерБосса % 2 === 0 ? "астероид" : "пришелец"
+  босс = { x: 200, y: -100, скорость: 1.2, hp: тип === "астероид" ? 5 : 10, максHP: тип === "астероид" ? 5 : 10, пульс: 0, dx: 0.8, фаза: 0, тип }
 }
 
 function создатьБонус() {
@@ -1028,65 +1033,79 @@ function рисБосс(б) {
   б.фаза = (б.фаза || 0) + 0.05
   ctx.save(); ctx.translate(б.x, б.y)
 
-  // Предупреждающий ореол
-  glow("#ff00aa", 25)
-  ctx.strokeStyle = `rgba(255,0,170,${0.2+Math.sin(б.пульс*0.08)*0.15})`
-  ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 58, 0, Math.PI*2); ctx.stroke()
+  if (б.тип === "астероид") {
+    // ── Старый босс — большой астероид ──
+    glow("#ff0044", 30)
+    ctx.strokeStyle = `rgba(255,0,68,${0.3+Math.sin(б.пульс*0.1)*0.2})`
+    ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, 52, 0, Math.PI*2); ctx.stroke()
+    ctx.beginPath()
+    for (let i = 0; i < 12; i++) {
+      const у = (i/12)*Math.PI*2, р = 40*(0.8+Math.sin(i*1.7+б.пульс*0.02)*0.2)
+      i === 0 ? ctx.moveTo(Math.cos(у)*р, Math.sin(у)*р) : ctx.lineTo(Math.cos(у)*р, Math.sin(у)*р)
+    }
+    ctx.closePath()
+    ctx.fillStyle = "#440011"; ctx.fill()
+    ctx.strokeStyle = "#ff0044"; ctx.lineWidth = 3; ctx.stroke()
+    noGlow()
+    ctx.fillStyle = "#660022"
+    for (const [cx,cy,cr] of [[-12,-10,7],[10,-5,5],[-5,12,6]]) {
+      ctx.beginPath(); ctx.arc(cx,cy,cr,0,Math.PI*2); ctx.fill()
+    }
+    ctx.fillStyle = "#330011"; ctx.fillRect(-40, 50, 80, 10)
+    ctx.fillStyle = `hsl(${б.hp/б.максHP*120},100%,50%)`
+    ctx.fillRect(-40, 50, 80*(б.hp/б.максHP), 10)
+    ctx.strokeStyle = "#ff0044"; ctx.lineWidth = 1; ctx.strokeRect(-40, 50, 80, 10)
+    ctx.fillStyle = "#ff4466"; ctx.font = "bold 11px Arial"; ctx.textAlign = "center"
+    ctx.fillText(`☄️ BOSS  ${б.hp}/${б.максHP}`, 0, 75)
 
-  // Щупальца (6 штук)
-  for (let i = 0; i < 6; i++) {
-    const базУгол = (i/6)*Math.PI*2 + б.фаза
-    const волна = Math.sin(б.пульс*0.1 + i) * 8
-    ctx.strokeStyle = `rgba(0,255,136,0.7)`; ctx.lineWidth = 3
-    glow("#00ff88", 8)
-    ctx.beginPath(); ctx.moveTo(Math.cos(базУгол)*20, Math.sin(базУгол)*20)
-    ctx.quadraticCurveTo(
-      Math.cos(базУгол)*35 + Math.cos(базУгол+Math.PI/2)*волна,
-      Math.sin(базУгол)*35 + Math.sin(базУгол+Math.PI/2)*волна,
-      Math.cos(базУгол)*52, Math.sin(базУгол)*52
-    )
-    ctx.stroke()
-    // Кончик щупальца
-    ctx.fillStyle = "#00ff88"
-    ctx.beginPath(); ctx.arc(Math.cos(базУгол)*52, Math.sin(базУгол)*52, 4, 0, Math.PI*2); ctx.fill()
+  } else {
+    // ── Новый босс — инопланетянин ──
+    glow("#ff00aa", 25)
+    ctx.strokeStyle = `rgba(255,0,170,${0.2+Math.sin(б.пульс*0.08)*0.15})`
+    ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 58, 0, Math.PI*2); ctx.stroke()
+    // Щупальца
+    for (let i = 0; i < 6; i++) {
+      const базУгол = (i/6)*Math.PI*2 + б.фаза
+      const волна = Math.sin(б.пульс*0.1 + i) * 8
+      ctx.strokeStyle = `rgba(0,255,136,0.7)`; ctx.lineWidth = 3
+      glow("#00ff88", 8)
+      ctx.beginPath(); ctx.moveTo(Math.cos(базУгол)*20, Math.sin(базУгол)*20)
+      ctx.quadraticCurveTo(
+        Math.cos(базУгол)*35 + Math.cos(базУгол+Math.PI/2)*волна,
+        Math.sin(базУгол)*35 + Math.sin(базУгол+Math.PI/2)*волна,
+        Math.cos(базУгол)*52, Math.sin(базУгол)*52
+      )
+      ctx.stroke()
+      ctx.fillStyle = "#00ff88"
+      ctx.beginPath(); ctx.arc(Math.cos(базУгол)*52, Math.sin(базУгол)*52, 4, 0, Math.PI*2); ctx.fill()
+    }
+    noGlow(); glow("#ff00aa", 20)
+    const г = ctx.createRadialGradient(0,0,0, 0,0,22)
+    г.addColorStop(0, "#220033"); г.addColorStop(0.6, "#660088"); г.addColorStop(1, "#ff00aa")
+    ctx.fillStyle = г; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill()
+    const пульсР = 10 + Math.sin(б.пульс*0.15)*3
+    glow("#ffffff", 15); ctx.fillStyle = "#ff88ff"
+    ctx.beginPath(); ctx.arc(0, 0, пульсР, 0, Math.PI*2); ctx.fill()
+    noGlow()
+    ctx.fillStyle = "#ff0000"
+    ctx.beginPath(); ctx.arc(-7, -5, 5, 0, Math.PI*2); ctx.fill()
+    ctx.beginPath(); ctx.arc(7, -5, 5, 0, Math.PI*2); ctx.fill()
+    ctx.fillStyle = "#000"
+    ctx.beginPath(); ctx.arc(-7+Math.cos(б.фаза)*2, -5, 2.5, 0, Math.PI*2); ctx.fill()
+    ctx.beginPath(); ctx.arc(7+Math.cos(б.фаза)*2, -5, 2.5, 0, Math.PI*2); ctx.fill()
+    ctx.fillStyle = "#ffffff"
+    ctx.beginPath(); ctx.arc(-6, -6, 1, 0, Math.PI*2); ctx.fill()
+    ctx.beginPath(); ctx.arc(8, -6, 1, 0, Math.PI*2); ctx.fill()
+    noGlow()
+    ctx.fillStyle = "#330011"; ctx.fillRect(-45, 62, 90, 12)
+    ctx.fillStyle = `hsl(${б.hp/б.максHP*120},100%,50%)`
+    ctx.fillRect(-45, 62, 90*(б.hp/б.максHP), 12)
+    ctx.strokeStyle = "#ff00aa"; ctx.lineWidth = 1; ctx.strokeRect(-45, 62, 90, 12)
+    glow("#ff00aa", 8)
+    ctx.fillStyle = "#ff88ff"; ctx.font = "bold 11px Arial"; ctx.textAlign = "center"
+    ctx.fillText(`👾 ALIEN BOSS  ${б.hp}/${б.максHP}`, 0, 86)
+    noGlow()
   }
-
-  // Тело — инопланетный организм
-  noGlow(); glow("#ff00aa", 20)
-  const г = ctx.createRadialGradient(0,0,0, 0,0,22)
-  г.addColorStop(0, "#220033"); г.addColorStop(0.6, "#660088"); г.addColorStop(1, "#ff00aa")
-  ctx.fillStyle = г; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill()
-
-  // Пульсирующий центр
-  const пульсР = 10 + Math.sin(б.пульс*0.15)*3
-  glow("#ffffff", 15)
-  ctx.fillStyle = "#ff88ff"
-  ctx.beginPath(); ctx.arc(0, 0, пульсР, 0, Math.PI*2); ctx.fill()
-
-  // Глаза
-  noGlow()
-  ctx.fillStyle = "#ff0000"
-  ctx.beginPath(); ctx.arc(-7, -5, 5, 0, Math.PI*2); ctx.fill()
-  ctx.beginPath(); ctx.arc(7, -5, 5, 0, Math.PI*2); ctx.fill()
-  ctx.fillStyle = "#000"
-  ctx.beginPath(); ctx.arc(-7+Math.cos(б.фаза)*2, -5, 2.5, 0, Math.PI*2); ctx.fill()
-  ctx.beginPath(); ctx.arc(7+Math.cos(б.фаза)*2, -5, 2.5, 0, Math.PI*2); ctx.fill()
-  ctx.fillStyle = "#ffffff"
-  ctx.beginPath(); ctx.arc(-6, -6, 1, 0, Math.PI*2); ctx.fill()
-  ctx.beginPath(); ctx.arc(8, -6, 1, 0, Math.PI*2); ctx.fill()
-
-  // HP бар
-  noGlow()
-  ctx.fillStyle = "#330011"; ctx.fillRect(-45, 62, 90, 12); ctx.beginPath()
-  ctx.fillStyle = `hsl(${б.hp/б.максHP*120},100%,50%)`
-  ctx.fillRect(-45, 62, 90*(б.hp/б.максHP), 12)
-  ctx.strokeStyle = "#ff00aa"; ctx.lineWidth = 1; ctx.strokeRect(-45, 62, 90, 12)
-
-  // Метка с HP
-  glow("#ff00aa", 8)
-  ctx.fillStyle = "#ff88ff"; ctx.font = "bold 11px Arial"; ctx.textAlign = "center"
-  ctx.fillText(`👾 ALIEN BOSS  ${б.hp}/${б.максHP}`, 0, 86)
-  noGlow()
   ctx.restore()
 }
 function рисПереходУровня() {
