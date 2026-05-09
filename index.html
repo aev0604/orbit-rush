@@ -760,12 +760,31 @@ function следующийШаг() {
   if (онбординг.шаг >= 4) {
     const startLvl = window._startLevel || 1
     уровень = startLvl
-    скоростьМусора = 2 + (startLvl - 1) * 0.7
+    скоростьМусора = 1.2 + (startLvl - 1) * 0.5
     очкиДоСледующегоУровня = 1000
     максДостигнутыйУровень = parseInt(localStorage.getItem("orbitRushMaxLevel") || "1")
     предыдущийУровень = startLvl
     загрузитьАпгрейды()
     перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
+    if (window._upgExtralife && жизни < 4) жизни++
+    // Расходники — читаем ДО сброса
+    const бомбаБыла = window._upgMegabomb > 0
+    const слоуБыл   = window._upgSlowstart > 0
+    мегаБомбДоступна = бомбаБыла
+    слоуСтартАктивен = слоуБыл
+    таймерСлоуСтарт  = слоуБыл ? 3600 : 0
+    if (бомбаБыла || слоуБыл) {
+      const д = JSON.parse(localStorage.getItem("orbitRushShop")||"{}")
+      if (бомбаБыла) д["upg_megabomb_game"]  = 0
+      if (слоуБыл)   д["upg_slowstart_game"] = 0
+      localStorage.setItem("orbitRushShop", JSON.stringify(д))
+    }
+    setTimeout(() => {
+      if (мегаБомбДоступна) добЭффект(200, 280, "💣 2×TAP = MEGA BOMB!", "#ffcc00")
+      if (слоуСтартАктивен)  добЭффект(200, 310, "🐢 Slow Start active!", "#00ff88")
+      if (window._upgRadar)  добЭффект(200, 340, "📡 Radar ON", "#00aaff")
+      if (window._upgAutoaim) добЭффект(200, 370, "🎯 Auto Aim ON", "#ffcc00")
+    }, 600)
     состояние = "игра"
   }
 }
@@ -1579,15 +1598,16 @@ function игровойЦикл() {
         continue
       }
       if (в.y > 540) { врагиСписок.splice(i, 1); continue }
-      if (window._upgRadar && в.y < 60) {
-        const alpha = 0.3 + Math.sin(кадр*0.5)*0.3
-        ctx.globalAlpha = alpha
+      if (window._upgRadar && в.y < 80) {
+        // Яркая полоса сверху на всю ширину в позиции врага
+        glow("#ff0000", 20)
+        ctx.fillStyle = `rgba(255,0,0,${0.5+Math.sin(кадр*0.6)*0.4})`
+        ctx.fillRect(0, 0, 400, 6)
+        // Большой треугольник-стрелка вниз
         ctx.fillStyle = "#ff2222"
-        ctx.fillRect(в.x-20, 0, 40, 4)
-        ctx.globalAlpha = 1
-        glow("#ff4444", 15)
-        ctx.fillStyle = "#ff4444"; ctx.font = "bold 18px Arial"; ctx.textAlign = "center"
-        ctx.fillText("⚠️", в.x, 22)
+        ctx.beginPath(); ctx.moveTo(в.x-14,0); ctx.lineTo(в.x+14,0); ctx.lineTo(в.x,18); ctx.closePath(); ctx.fill()
+        ctx.fillStyle="#fff"; ctx.font="bold 13px Arial"; ctx.textAlign="center"
+        ctx.fillText("!", в.x, 14)
         noGlow()
       }
       // Рисуем врага с красным свечением
@@ -1624,15 +1644,14 @@ function игровойЦикл() {
         continue
       }
       if (а.y > 540) { астероиды.splice(i,1); continue }
-      if (window._upgRadar && а.y < 60) {
-        const alpha = 0.3 + Math.sin(кадр*0.5)*0.3
-        ctx.globalAlpha = alpha
+      if (window._upgRadar && а.y < 80) {
+        glow("#ff8800", 15)
+        ctx.fillStyle = `rgba(255,136,0,${0.4+Math.sin(кадр*0.6)*0.3})`
+        ctx.fillRect(0, 0, 400, 6)
         ctx.fillStyle = "#ff8800"
-        ctx.fillRect(а.x-20, 0, 40, 4)
-        ctx.globalAlpha = 1
-        glow("#ff8800", 12)
-        ctx.fillStyle = "#ff8800"; ctx.font = "bold 18px Arial"; ctx.textAlign = "center"
-        ctx.fillText("⚠️", а.x, 22)
+        ctx.beginPath(); ctx.moveTo(а.x-14,0); ctx.lineTo(а.x+14,0); ctx.lineTo(а.x,18); ctx.closePath(); ctx.fill()
+        ctx.fillStyle="#fff"; ctx.font="bold 13px Arial"; ctx.textAlign="center"
+        ctx.fillText("!", а.x, 14)
         noGlow()
       }
       рисАстероид(а)
