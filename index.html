@@ -1462,7 +1462,14 @@ function игровойЦикл() {
       window._продолжитьУровень = () => {
         состояниеПереходУровня = false; состояние = "игра"
         скоростьМусора = (1.2 + (((уровень-1)%5)) * 0.5) * (1 + (Math.floor((уровень-1)/5)) * 0.15)
-        загрузитьАпгрейды(); перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
+        // Перезагружаем только постоянные апгрейды (не расходники)
+        const дУпг = JSON.parse(localStorage.getItem("orbitRushShop")||"{}")
+        window._activeSkin    = дУпг.skin || "default"
+        window._upgRapidfire  = дУпг["upg_rapidfire"] || 0
+        window._upgMagnet     = дУпг["upg_magnet"] || 0
+        window._upgRadar      = дУпг["upg_radar"] || 0
+        window._upgAutoaim    = дУпг["upg_autoaim"] || 0
+        перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
       }
       setTimeout(() => {
         if (состояние === "переходУровня") {
