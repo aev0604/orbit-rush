@@ -284,7 +284,6 @@
     // Постоянные
     { id:"rapidfire", иконка:"🔫", название:"Rapid Fire",  макс:3, тип:"постоянный", ценыУровней:[150,300,500], описания:["Shoot faster +20%","Shoot faster +40%","Shoot faster +60%"] },
     { id:"magnet",    иконка:"🧲", название:"Magnet",       макс:3, тип:"постоянный", ценыУровней:[150,300,450], описания:["Collect range +30%","Collect range +60%","Collect range x2"] },
-    { id:"radar",     иконка:"📡", название:"Radar",        макс:1, тип:"постоянный", ценыУровней:[500],         описания:["⚠️ warns before enemies appear"] },
     { id:"autoaim",   иконка:"🎯", название:"Auto Aim",     макс:1, тип:"постоянный", ценыУровней:[500],         описания:["Bullets track nearest enemy"] },
     // Галактические
     { id:"extralife", иконка:"❤️", название:"Extra Life",  макс:1, тип:"галактика",  ценыУровней:[300],         описания:["+1 life on start (resets per galaxy)"] },
@@ -582,6 +581,7 @@ function загрузитьАпгрейды() {
     window._upgExtralife = д[`upg_extralife_g${текГал}`] || 0
     window._upgRadar     = д["upg_radar"] || 0
     window._upgAutoaim   = д["upg_autoaim"] || 0
+    // Расходники читаем напрямую
     window._upgMegabomb  = д["upg_megabomb_game"] || 0
     window._upgSlowstart = д["upg_slowstart_game"] || 0
   } catch {
@@ -589,6 +589,31 @@ function загрузитьАпгрейды() {
     window._upgExtralife=0; window._upgRadar=0; window._upgAutoaim=0
     window._upgMegabomb=0; window._upgSlowstart=0
   }
+}
+
+function активироватьРасходники() {
+  // Читаем расходники ДО сброса
+  const бомбаБыла = window._upgMegabomb > 0
+  const слоуБыл   = window._upgSlowstart > 0
+  мегаБомбДоступна = бомбаБыла
+  слоуСтартАктивен = слоуБыл
+  таймерСлоуСтарт  = слоуБыл ? 3600 : 0
+  // Сбрасываем в localStorage
+  if (бомбаБыла || слоуБыл) {
+    const д = JSON.parse(localStorage.getItem("orbitRushShop")||"{}")
+    if (бомбаБыла) д["upg_megabomb_game"]  = 0
+    if (слоуБыл)   д["upg_slowstart_game"] = 0
+    localStorage.setItem("orbitRushShop", JSON.stringify(д))
+  }
+  // Обнуляем window переменные чтобы повторный вызов загрузитьАпгрейды не мешал
+  window._upgMegabomb = 0
+  window._upgSlowstart = 0
+  // Подсказки
+  setTimeout(() => {
+    if (мегаБомбДоступна) добЭффект(200, 280, "💣 2×TAP = MEGA BOMB!", "#ffcc00")
+    if (слоуСтартАктивен)  добЭффект(200, 310, "🐢 Slow Start active!", "#00ff88")
+    if (window._upgAutoaim) добЭффект(200, 370, "🎯 Auto Aim ON", "#ffcc00")
+  }, 600)
 }
 const достижения = JSON.parse(localStorage.getItem("orbitRushAch") || "{}")
 function разблокировать(ид) {
@@ -767,24 +792,7 @@ function следующийШаг() {
     загрузитьАпгрейды()
     перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
     if (window._upgExtralife && жизни < 4) жизни++
-    // Расходники — читаем ДО сброса
-    const бомбаБыла = window._upgMegabomb > 0
-    const слоуБыл   = window._upgSlowstart > 0
-    мегаБомбДоступна = бомбаБыла
-    слоуСтартАктивен = слоуБыл
-    таймерСлоуСтарт  = слоуБыл ? 3600 : 0
-    if (бомбаБыла || слоуБыл) {
-      const д = JSON.parse(localStorage.getItem("orbitRushShop")||"{}")
-      if (бомбаБыла) д["upg_megabomb_game"]  = 0
-      if (слоуБыл)   д["upg_slowstart_game"] = 0
-      localStorage.setItem("orbitRushShop", JSON.stringify(д))
-    }
-    setTimeout(() => {
-      if (мегаБомбДоступна) добЭффект(200, 280, "💣 2×TAP = MEGA BOMB!", "#ffcc00")
-      if (слоуСтартАктивен)  добЭффект(200, 310, "🐢 Slow Start active!", "#00ff88")
-      if (window._upgRadar)  добЭффект(200, 340, "📡 Radar ON", "#00aaff")
-      if (window._upgAutoaim) добЭффект(200, 370, "🎯 Auto Aim ON", "#ffcc00")
-    }, 600)
+    активироватьРасходники()
     состояние = "игра"
   }
 }
@@ -802,25 +810,7 @@ function перезапуск() {
   загрузитьАпгрейды()
   перезарядка = Math.max(8, 20 - (window._upgRapidfire||0)*4)
   if (window._upgExtralife && жизни < 4) жизни++
-  // Расходники — читаем ДО сброса в localStorage
-  const бомбаБыла = window._upgMegabomb > 0
-  const слоуБыл   = window._upgSlowstart > 0
-  мегаБомбДоступна = бомбаБыла
-  слоуСтартАктивен = слоуБыл
-  таймерСлоуСтарт  = слоуБыл ? 3600 : 0
-  if (бомбаБыла || слоуБыл) {
-    const д = JSON.parse(localStorage.getItem("orbitRushShop")||"{}")
-    if (бомбаБыла) д["upg_megabomb_game"]  = 0
-    if (слоуБыл)   д["upg_slowstart_game"] = 0
-    localStorage.setItem("orbitRushShop", JSON.stringify(д))
-  }
-  // Подсказки при старте
-  setTimeout(() => {
-    if (мегаБомбДоступна) добЭффект(200, 280, "💣 2×TAP = MEGA BOMB!", "#ffcc00")
-    if (слоуСтартАктивен)  добЭффект(200, 310, "🐢 Slow Start active!", "#00ff88")
-    if (window._upgRadar)  добЭффект(200, 340, "📡 Radar ON", "#00aaff")
-    if (window._upgAutoaim) добЭффект(200, 370, "🎯 Auto Aim ON", "#ffcc00")
-  }, 600)
+  активироватьРасходники()
   таймерВыстрела = 0
   уровень = startLvl
   скоростьМусора = 1.2 + (startLvl - 1) * 0.5
