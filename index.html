@@ -1579,10 +1579,16 @@ function игровойЦикл() {
         continue
       }
       if (в.y > 540) { врагиСписок.splice(i, 1); continue }
-      if (window._upgRadar && в.y < 30) {
-        ctx.globalAlpha = 0.4+Math.sin(кадр*0.4)*0.6
-        ctx.fillStyle="#ff4444"; ctx.font="bold 16px Arial"; ctx.textAlign="center"
-        ctx.fillText("⚠️", в.x, 20); ctx.globalAlpha=1
+      if (window._upgRadar && в.y < 60) {
+        const alpha = 0.3 + Math.sin(кадр*0.5)*0.3
+        ctx.globalAlpha = alpha
+        ctx.fillStyle = "#ff2222"
+        ctx.fillRect(в.x-20, 0, 40, 4)
+        ctx.globalAlpha = 1
+        glow("#ff4444", 15)
+        ctx.fillStyle = "#ff4444"; ctx.font = "bold 18px Arial"; ctx.textAlign = "center"
+        ctx.fillText("⚠️", в.x, 22)
+        noGlow()
       }
       // Рисуем врага с красным свечением
       glow(в.цвет, 20)
@@ -1618,10 +1624,16 @@ function игровойЦикл() {
         continue
       }
       if (а.y > 540) { астероиды.splice(i,1); continue }
-      if (window._upgRadar && а.y < 20) {
-        ctx.globalAlpha = 0.4+Math.sin(кадр*0.4)*0.6
-        ctx.fillStyle="#ff8800"; ctx.font="bold 14px Arial"; ctx.textAlign="center"
-        ctx.fillText("⚠️", а.x, 20); ctx.globalAlpha=1
+      if (window._upgRadar && а.y < 60) {
+        const alpha = 0.3 + Math.sin(кадр*0.5)*0.3
+        ctx.globalAlpha = alpha
+        ctx.fillStyle = "#ff8800"
+        ctx.fillRect(а.x-20, 0, 40, 4)
+        ctx.globalAlpha = 1
+        glow("#ff8800", 12)
+        ctx.fillStyle = "#ff8800"; ctx.font = "bold 18px Arial"; ctx.textAlign = "center"
+        ctx.fillText("⚠️", а.x, 22)
+        noGlow()
       }
       рисАстероид(а)
     }
