@@ -523,11 +523,11 @@ function предложитьРекламу() {
 
 function показатьРекламу() {
   рекламаИспользована = true
-  // Пытаемся вызвать нативный Android интерфейс (TWA + AdMob)
   if (window.Android && typeof window.Android.showRewardedAd === "function") {
+    добЭффект(200, 150, "Android OK!", "#00ff00")
     window.Android.showRewardedAd()
   } else {
-    // Fallback для браузера — даём жизнь без рекламы (для тестирования)
+    добЭффект(200, 150, "No Android!", "#ff0000")
     получитьНаградуЗаРекламу()
   }
 }
