@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aev0604.orbitrush",
+      "sha256_cert_fingerprints": [
+        "2E:20:EA:84:1D:C7:52:F2:C0:DD:02:99:9C:FE:6A:2A:EC:DC:C5:67:B4:88:F4:61:BE:1E:BB:76:8E:D6:94:49"
+      ]
+    }
+  }
+]
