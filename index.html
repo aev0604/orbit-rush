@@ -419,15 +419,14 @@
   <button id="lvlContinueBtn" style="background:transparent;border:1.5px solid #00d4aa99;color:#00d4aa;">CONTINUE →</button>
 </div>
 <div id="gameControls" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;">
-  <button id="pauseBtn" style="position:absolute;top:6px;right:6px;width:36px;height:36px;border-radius:8px;background:rgba(0,212,170,0.15);border:1px solid rgba(0,212,170,0.3);color:#00d4aa;font-size:16px;cursor:pointer;pointer-events:all;display:none;">⏸</button>
-  <button id="bombBtn" style="position:absolute;bottom:8px;right:8px;width:52px;height:52px;border-radius:12px;background:rgba(255,102,0,0.2);border:2px solid rgba(255,102,0,0.6);color:#ffcc00;font-size:22px;cursor:pointer;pointer-events:all;display:none;flex-direction:column;align-items:center;justify-content:center;">💣<span id="bombCount" style="font-size:10px;font-weight:bold;display:block;margin-top:-2px;"></span></button>
+  <button id="pauseBtn" style="position:absolute;top:6px;right:6px;width:36px;height:36px;border-radius:8px;background:rgba(0,212,170,0.15);border:1px solid rgba(0,212,170,0.3);color:#00d4aa;font-size:16px;cursor:pointer;pointer-events:all;display:none;z-index:10;">⏸</button>
+  <button id="bombBtn" style="position:absolute;bottom:8px;right:8px;width:52px;height:52px;border-radius:12px;background:rgba(255,102,0,0.2);border:2px solid rgba(255,102,0,0.6);color:#ffcc00;font-size:22px;cursor:pointer;pointer-events:all;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:10;">💣<span id="bombCount" style="font-size:10px;font-weight:bold;display:block;margin-top:-2px;"></span></button>
 </div>
 </div>
 <div class="controls">
   <button class="btn" id="звукКнопка" onclick="переключитьЗвук()">🔊</button>
   <div class="hint">
     <span>← →</span> move &nbsp;|&nbsp;
-    <span>P</span> pause &nbsp;|&nbsp;
     <span>touch</span> mobile
   </div>
 </div>
