@@ -418,6 +418,10 @@
   <button id="lvlShopBtn" style="background:transparent;border:1.5px solid #ffcc0099;color:#ffcc00;">🏪 SHOP</button>
   <button id="lvlContinueBtn" style="background:transparent;border:1.5px solid #00d4aa99;color:#00d4aa;">CONTINUE →</button>
 </div>
+<div id="gameControls" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;">
+  <button id="pauseBtn" style="position:absolute;top:6px;right:6px;width:36px;height:36px;border-radius:8px;background:rgba(0,212,170,0.15);border:1px solid rgba(0,212,170,0.3);color:#00d4aa;font-size:16px;cursor:pointer;pointer-events:all;display:none;">⏸</button>
+  <button id="bombBtn" style="position:absolute;bottom:8px;right:8px;width:52px;height:52px;border-radius:12px;background:rgba(255,102,0,0.2);border:2px solid rgba(255,102,0,0.6);color:#ffcc00;font-size:22px;cursor:pointer;pointer-events:all;display:none;flex-direction:column;align-items:center;justify-content:center;">💣<span id="bombCount" style="font-size:10px;font-weight:bold;display:block;margin-top:-2px;"></span></button>
+</div>
 </div>
 <div class="controls">
   <button class="btn" id="звукКнопка" onclick="переключитьЗвук()">🔊</button>
@@ -523,13 +527,13 @@ function предложитьРекламу() {
 
 function показатьРекламу() {
   рекламаИспользована = true
+  // Сначала пробуем прямой JS интерфейс (если подключился)
   if (window.Android && typeof window.Android.showRewardedAd === "function") {
-    добЭффект(200, 150, "Android OK!", "#00ff00")
     window.Android.showRewardedAd()
-  } else {
-    добЭффект(200, 150, "No Android!", "#ff0000")
-    получитьНаградуЗаРекламу()
+    return
   }
+  // Fallback для браузера — даём жизнь без рекламы
+  получитьНаградуЗаРекламу()
 }
 
 // Вызывается из Android когда игрок досмотрел рекламу
@@ -1399,11 +1403,7 @@ function рисHUD() {
   }
 }
 function рисКнопкаПаузы() {
-  const {x,y,ш,в} = кнопкаПаузы
-  ctx.fillStyle="rgba(0,212,170,0.1)"; ctx.strokeStyle="#00d4aa44"; ctx.lineWidth=1
-  ctx.beginPath(); ctx.roundRect(x,y,ш,в,6); ctx.fill(); ctx.stroke()
-  ctx.fillStyle="#00d4aa88"; ctx.font="14px Arial"; ctx.textAlign="center"
-  ctx.fillText(состояние==="пауза"?"▶":"⏸", x+ш/2, y+в/2+5)
+  // Заменена HTML кнопкой #pauseBtn
 }
 function рисПауза() {
   ctx.fillStyle="rgba(6,6,15,0.78)"; ctx.fillRect(0,0,400,500)
@@ -1892,6 +1892,58 @@ function игровойЦикл() {
 }
 
 игровойЦикл()
+
+// =====================
+// 🎮 HTML КНОПКИ (пауза + бомба)
+// =====================
+const pauseBtn = document.getElementById("pauseBtn")
+const bombBtn = document.getElementById("bombBtn")
+const bombCount = document.getElementById("bombCount")
+
+setInterval(() => {
+  if (состояние === "игра" || состояние === "пауза") {
+    pauseBtn.style.display = "block"
+    pauseBtn.textContent = состояние === "пауза" ? "▶" : "⏸"
+  } else {
+    pauseBtn.style.display = "none"
+  }
+  if (состояние === "игра" && мегаБомбДоступна > 0) {
+    bombBtn.style.display = "flex"
+    bombCount.textContent = мегаБомбДоступна > 1 ? `×${мегаБомбДоступна}` : ""
+  } else {
+    bombBtn.style.display = "none"
+  }
+}, 100)
+
+pauseBtn.addEventListener("click", e => {
+  e.stopPropagation()
+  if (состояние === "игра" || состояние === "пауза") переключитьПаузу()
+})
+pauseBtn.addEventListener("touchstart", e => {
+  e.preventDefault(); e.stopPropagation()
+  if (состояние === "игра" || состояние === "пауза") переключитьПаузу()
+}, { passive: false })
+
+function взорватьБомбу() {
+  if (состояние !== "игра" || мегаБомбДоступна <= 0) return
+  мегаБомбДоступна--
+  ;[...мусорСписок,...астероиды,...врагиСписок,...хорошиеЭлементы].forEach(о=>взрыв(о.x,о.y||200,"#ffcc00",8))
+  мусорСписок.length=0; астероиды.length=0; врагиСписок.length=0
+  const остаток = мегаБомбДоступна > 0 ? ` (${мегаБомбДоступна} left)` : ""
+  добЭффект(200,200,`💣 MEGA BOMB!${остаток}`,"#ffcc00"); звук.рекорд&&звук.рекорд(); вибрация([100,50,100,50,100])
+}
+bombBtn.addEventListener("click", e => { e.stopPropagation(); взорватьБомбу() })
+bombBtn.addEventListener("touchstart", e => { e.preventDefault(); e.stopPropagation(); взорватьБомбу() }, { passive: false })
+
+// Слушаем ответы от Android (TWA postMessage)
+window.addEventListener("message", function(event) {
+  if (event.data === "adRewarded" || (event.data && event.data.type === "adRewarded")) {
+    window.onAdRewarded && window.onAdRewarded()
+  }
+  if (event.data === "adDismissed" || (event.data && event.data.type === "adDismissed")) {
+    window.onAdDismissed && window.onAdDismissed()
+  }
+})
 
 document.getElementById("lvlShopBtn").addEventListener("click", e => {
   e.stopPropagation(); e.preventDefault()
