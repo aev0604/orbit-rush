@@ -115,7 +115,7 @@
 
     window.загрузитьГлобальныйТоп = async function() {
       try {
-        const q = query(ref(db, 'leaderboard'), orderByChild('score'), limitToLast(20))
+        const q = query(ref(db, 'leaderboard'), orderByChild('score'), limitToLast(100))
         const snap = await get(q)
         const результаты = []
         snap.forEach(child => {
